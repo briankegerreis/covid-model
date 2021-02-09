@@ -36,7 +36,7 @@ where the additional parameters are :
 
 The script lockdown.R allows to simulate the spread of an epidemic and vaccinate part of the population at some moment. It can be run by  modifying  the following command:
 
-Rscript vaccination.R  -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17 -i 0.05 -t 300 -x 50 -l 0.5 -s foldername -d 0.25 -v 0.3 -w 1 -f 0.9 -oV -w
+Rscript vaccination.R  -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17 -i 0.05 -t 300 -x 50 -l 0.5 -s foldername -d 0.25 -v 0.3 -w 1 -f 0.9 -oV 1
 
 where the additional parameters are: 
  - d is the fraction of the population that we can vaccinate with the available doses
