@@ -5,9 +5,13 @@ They allow to simulate the spread of an epidemic in a population where the conta
 
 
 # How to run the simulations
-All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows user's have to be sure that option -c F is selected (see below).
+All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows user's have to be sure that option -c F is selected (see below). 
+To run the scripts, the user needs to clone this repository and to have installed R as well as the following libraries : Rcpp, igraph, parallel.
+Before running any simulation, the user needs to change the first line in control.R to, to add the path to the directory that contains all the scripts.
 
-The script control.R allows to simulate the spread of an epidemic without any human intervention. It can be run by modifying the following command line: 
+
+The script control.R allows to simulate the spread of an epidemic without any human intervention. 
+It can be run by modifying the following command line: 
 
 Rscript control.R -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17  -i 0.05 -t 300 -x 50 -l 0.5 -s foldername  
 
