@@ -54,6 +54,9 @@ The scripts will create different folders (all contained in the main folder "fol
 
 G : contains m files called 1.txt, 2.txt ... Each one contains the graph used in one simulation. It is a list of all the edges in the graph, e.g. if the first line is "17 28" it means that individual 17 is connected to individual 28 in the graph. 
 
+DF : contains m files called 1.txt, 2.txt ... Each one corresponds to one simulation. The first column is the label of each individual. The second column corresponds to 
+
+NW : contains m  m files called 1.txt, 2.txt ... Each one contains a Newick format tree representing the transmission tree.
 
 
 
