@@ -5,7 +5,7 @@ They allow to simulate the spread of an epidemic in a population where the conta
 
 
 # How to run the simulations
-All scripts run on an Unix-based system. They involve parallelized computations, which will not (directly) work under Windows operating system.
+All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows user's have to be sure that option -c F is selected (see below).
 
 The script control.R allows to simulate the spread of an epidemic without any human intervention. It can be run by modifying the following command line: 
 
@@ -13,14 +13,15 @@ Rscript control.R -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17  -i 0.05 -t 
 
 where : 
  - m is the number of independent simulations you want to run
- - c is the number of cores to be used to run the script
+ - c is the number of cores to be used to run the script. If this value is set to F the script will not use parallelized computations (and will be suitable for Widnows users)
  - n is the population size
  - e is the expected degree of the graph (average number of contacts per individual)
  - d are the death probabilities (first value is for the highly connected individuals, second value for the lowly connected individuals
  - q is the fraction of "vulnerable" individuals (i.e. less  connected and with a higher death rate).
- - l is a parameter related to the exponent of the power law degree distribution (see Qiao et al. (2018)). To run a simulation under an Erdős-Rényi graph set lambda to -1. 
  - i is the probability that an infected individual infects on of its neighbors
  - t is the maximum time for the simulations
+ - x is the minimal number of infected individuals that has to be reached to consider a simulation as successful (to avoid considering epidemics that die out very quickly without reaching an exponential phase). 
+ - l is a parameter related to the exponent of the power law degree distribution (see Qiao et al. (2018)). To run a simulation under an Erdős-Rényi graph set lambda to -1. 
  - s is a prefix for the name of the output folders. 
 
 The script lockdown.R allows to simulate the spread of an epidemic when a lockdown takes place. It can be run by  modifying  the following command:
@@ -46,19 +47,25 @@ where the additional parameters are:
  
 
 
-All the other scripts in this reposotory are dependencies of these three scripts. 
+All the other scripts in this repository are dependencies of these three scripts. 
 
 # Structure of the output
 
 The scripts will create different folders (all contained in the main folder "foldername") that contain the output : 
 
-G : contains m files called 1.txt, 2.txt ... Each one contains the graph used in one simulation. It is a list of all the edges in the graph, e.g. if the first line is "17 28" it means that individual 17 is connected to individual 28 in the graph. 
+G : contains m files called 1.txt, 2.txt ... Each one contains the graph used in one simulation. It is a list of all the edges in the graph, e.g. if the first line is "17 28" it means that individual 17 is connected to individual 28 in the graph.
 
-DF : contains m files called 1.txt, 2.txt ... Each one corresponds to one simulation. The first column is the label of each individual. The second column corresponds to 
+DG:  contains m files called 1.txt, 2.txt ... Each file corresponds to one simulation and has one line per individual. The first value is its degree in the graph (number of contacts). The second and third values recall the graph structure and the population size.
+
+SIR : contains m files called 1.txt, 2.txt ... Each file corresponds to one simulation. Each line corresponds to one day. Columns 1 to 4 are the number of Susceptible, Infected, Recovered and Dead at the end of this day. 
+
+DF : contains m files called 1.txt, 2.txt ... Each file corresponds to one simulation and has one line per individual. The first column is the label of the individual. The second column is the status of the individual (S, I, R or D) at the end of the simulation. The third column is the time of infection. The fourth one is the recovery time (or death time). The fifth is the label of the individual who infected this individual. The sixth is the number of individuals infected by this individual. The seventh is the last time he infected someone else. The last column corresponds to its degree in the grap (number of contacts).
+
+HI : : contains m files called 1.txt, 2.txt ...  These are single line files, each one corresponding to one simulation. The first value is the cumulative number of infected individuals during the epidemic. The second and third values recall the graph structure and the population size.
 
 NW : contains m  m files called 1.txt, 2.txt ... Each one contains a Newick format tree representing the transmission tree.
 
 
 
-# Plots 
+
 
