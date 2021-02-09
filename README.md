@@ -61,7 +61,7 @@ SIR : contains m files called 1.txt, 2.txt ... Each file corresponds to one simu
 
 DF : contains m files called 1.txt, 2.txt ... Each file corresponds to one simulation and has one line per individual. The first column is the label of the individual. The second column is the status of the individual (S, I, R or D) at the end of the simulation. The third column is the time of infection. The fourth one is the recovery time (or death time). The fifth is the label of the individual who infected this individual. The sixth is the number of individuals infected by this individual. The seventh is the last time he infected someone else. The last column corresponds to its degree in the grap (number of contacts).
 
-HI : : contains m files called 1.txt, 2.txt ...  These are single line files, each one corresponding to one simulation. The first value is the cumulative number of infected individuals during the epidemic. The second and third values recall the graph structure and the population size.
+HI : contains m files called 1.txt, 2.txt ...  These are single line files, each one corresponding to one simulation. The first value is the cumulative number of infected individuals during the epidemic. The second and third values recall the graph structure and the population size.
 
 NW : contains m  m files called 1.txt, 2.txt ... Each one contains a Newick format tree representing the transmission tree.
 
