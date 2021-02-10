@@ -13,14 +13,14 @@ Before running any simulation, the user needs to change the first line in contro
 The script control.R allows to simulate the spread of an epidemic without any human intervention. 
 It can be run by modifying the following command line: 
 
-Rscript control.R -m 30 -c 30 -n 20000 -e 44 --d1 0.005 --d2 0.07 -q 0.17  -i 0.05 -t 300 -x 50 -l 0.5 -s foldername  
+Rscript control.R -m 30 -c 30 -n 20000 -e 44 -d1 0.005 -d2 0.07 -q 0.17  -i 0.05 -t 300 -x 50 -l 0.5 -s foldername  
 
 where : 
  - m is the number of independent simulations you want to run
  - c is the number of cores to be used to run the script. If this value is set to F the script will not use parallelized computations (and will be suitable for Windows users)
  - n is the population size
  - e is the expected degree of the graph (average number of contacts per individual)
- - d1 d2 are the death probabilities (first value is for the highly connected individuals, second value for the lowly connected individuals
+ - d1 d2 are the death probabilities (first value is for the highly connected individuals, second value for the lowly connected individuals)
  - q is the fraction of "vulnerable" individuals (i.e. less  connected and with a higher death rate).
  - i is the probability that an infected individual infects on of its neighbors
  - t is the maximum time for the simulations
