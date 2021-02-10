@@ -5,9 +5,9 @@ They allow to simulate the spread of an epidemic in a population where the conta
 
 
 # How to run the simulations
-All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows user's have to be sure that option -c F is selected (see below). 
+All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows users have to be sure that option -c F is selected (see below). 
 To run the scripts, the user needs to clone this repository and to have installed R as well as the following libraries : Rcpp, igraph, parallel and getopt.
-Before running any simulation, the user needs to change the first line in control.R to, to add the path to the directory that contains all the scripts.
+Before running any simulation, the user needs to change the first line in control.R to, to add the path of the directory that contains all the scripts.
 
 
 The script control.R allows to simulate the spread of an epidemic without any human intervention. 
@@ -17,7 +17,7 @@ Rscript control.R -m 30 -c 30 -n 20000 -e 44 --d1 0.005 --d2 0.07 -q 0.17  -i 0.
 
 where : 
  - m is the number of independent simulations you want to run
- - c is the number of cores to be used to run the script. If this value is set to F the script will not use parallelized computations (and will be suitable for Widnows users)
+ - c is the number of cores to be used to run the script. If this value is set to F the script will not use parallelized computations (and will be suitable for Windows users)
  - n is the population size
  - e is the expected degree of the graph (average number of contacts per individual)
  - d1 d2 are the death probabilities (first value is for the highly connected individuals, second value for the lowly connected individuals
@@ -46,7 +46,7 @@ where the additional parameters are:
  - b is the fraction of the population that we can vaccinate with the available doses
  - v is the  "vaccination time", i.e. cumulative fraction of the population that has to be infected  before the intervention is made
  - w indicates which categories of individuals you can vaccinate (1: only susceptibles S, 2: susceptible, recovered or infected SIR)
- - pE is the efficacy of the vaccin
+ - pE is the efficacy of the vaccine
  - o is the strategy,  1: Uniform, 2: Neighbor, 3: Among popular, 4: Most popular
  
 
@@ -67,7 +67,7 @@ DF : contains m files called 1.txt, 2.txt ... Each file corresponds to one simul
 
 HI : contains m files called 1.txt, 2.txt ...  These are single line files, each one corresponding to one simulation. The first value is the cumulative number of infected individuals during the epidemic. The second and third values recall the graph structure and the population size.
 
-NW : contains m  m files called 1.txt, 2.txt ... Each one contains a Newick format tree representing the transmission tree.
+NW : contains m files called 1.txt, 2.txt ... Each one contains a Newick format tree representing the transmission tree.
 
 
 
