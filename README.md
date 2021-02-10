@@ -6,21 +6,21 @@ They allow to simulate the spread of an epidemic in a population where the conta
 
 # How to run the simulations
 All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows user's have to be sure that option -c F is selected (see below). 
-To run the scripts, the user needs to clone this repository and to have installed R as well as the following libraries : Rcpp, igraph, parallel.
+To run the scripts, the user needs to clone this repository and to have installed R as well as the following libraries : Rcpp, igraph, parallel and getopt.
 Before running any simulation, the user needs to change the first line in control.R to, to add the path to the directory that contains all the scripts.
 
 
 The script control.R allows to simulate the spread of an epidemic without any human intervention. 
 It can be run by modifying the following command line: 
 
-Rscript control.R -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17  -i 0.05 -t 300 -x 50 -l 0.5 -s foldername  
+Rscript control.R -m 30 -c 30 -n 20000 -e 44 --d1 0.005 --d2 0.07 -q 0.17  -i 0.05 -t 300 -x 50 -l 0.5 -s foldername  
 
 where : 
  - m is the number of independent simulations you want to run
  - c is the number of cores to be used to run the script. If this value is set to F the script will not use parallelized computations (and will be suitable for Widnows users)
  - n is the population size
  - e is the expected degree of the graph (average number of contacts per individual)
- - d are the death probabilities (first value is for the highly connected individuals, second value for the lowly connected individuals
+ - d1 d2 are the death probabilities (first value is for the highly connected individuals, second value for the lowly connected individuals
  - q is the fraction of "vulnerable" individuals (i.e. less  connected and with a higher death rate).
  - i is the probability that an infected individual infects on of its neighbors
  - t is the maximum time for the simulations
@@ -30,7 +30,7 @@ where :
 
 The script lockdown.R allows to simulate the spread of an epidemic when a lockdown takes place. It can be run by  modifying  the following command:
 
-Rscript lockdown.R -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17  -i 0.05 -t 300 -x 50 -l 0.5 -s foldername -oLD 1 -v 0.1 -pLD 0.5
+Rscript vaccination.R -m 30 -c 30 -n 20000 -e 44 --d1 0.005 --d2 0.07 -q 0.17  -i 0.05 -t 300 -x 50 -l 0.5 -s foldername --oLD 1 -v 0.1 --pLD 0.5 -- mLD 10 --pLD 0.6
 
 where the additional parameters are : 
  - oLD is strategy of the Lockdown (1 or 2, see Supplementary Methods).
@@ -40,14 +40,14 @@ where the additional parameters are :
 
 The script lockdown.R allows to simulate the spread of an epidemic and vaccinate part of the population at some moment. It can be run by  modifying  the following command:
 
-Rscript vaccination.R  -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17 -i 0.05 -t 300 -x 50 -l 0.5 -s foldername -d 0.25 -v 0.3 -w 1 -f 0.9 -oV 1
+Rscript vaccination.R  -m 30 -c 30 -n 20000 -e 44 -d 0.07, 0.005 -q 0.17 -i 0.05 -t 300 -x 50 -l 0.5 -s foldername -b 0.25 -v 0.3 -w 1 --pE 0.9 -o 1
 
 where the additional parameters are: 
- - d is the fraction of the population that we can vaccinate with the available doses
+ - b is the fraction of the population that we can vaccinate with the available doses
  - v is the  "vaccination time", i.e. cumulative fraction of the population that has to be infected  before the intervention is made
  - w indicates which categories of individuals you can vaccinate (1: only susceptibles S, 2: susceptible, recovered or infected SIR)
- - f is the efficacy of the vaccin
- - oV is the strategy,  1: Uniform, 2: Neighbor, 3: Among popular, 4: Most popular
+ - pE is the efficacy of the vaccin
+ - o is the strategy,  1: Uniform, 2: Neighbor, 3: Among popular, 4: Most popular
  
 
 
