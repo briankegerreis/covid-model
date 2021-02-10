@@ -5,7 +5,7 @@ They allow to simulate the spread of an epidemic in a population where the conta
 
 
 # How to run the simulations
-All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows users have to be sure that option -c F is selected (see below). 
+All scripts run on an Unix-based system. They can involve parallelized computations, which will not (directly) work under Windows operating system. Windows users have to be sure that option -c 0 is selected (see below). 
 To run the scripts, the user needs to clone this repository and to have installed R as well as the following libraries : Rcpp, igraph, parallel and getopt.
 
 Before running any simulation, the user needs to change the first line in control.R, vaccination.R and lockdown.R to add the path to the directory that contains all the scripts.
@@ -18,14 +18,14 @@ Rscript control.R -m 30 -c 30 -n 20000 -e 44 -r 0.1 -d1 0.005 -d2 0.07 -q 0.17  
 
 where : 
  - m is the number of independent simulations you want to run,
- - c is the number of cores to be used to run the script. If this value is set to F the script will not use parallelized computations (and will be suitable for Windows users),
+ - c is the number of cores to be used to run the script. If this value is set to 0 the script will not use parallelized computations (and will be suitable for Windows users),
  - n is the population size,
  - e is the expected degree of the graph (average number of contacts per individual),
  - r is the recovery rate (i.e. 1 over the average time an individual remains infected),
  - d1 d2 are the death probabilities (first value is for the highly connected individuals, second value for the lowly connected individuals),
  - q is the fraction of "vulnerable" individuals (i.e. less  connected and with a higher death rate),
  - i is the probability that an infected individual infects on of its neighbors,
- - t is the maximum time for the simulations,
+ - t is the maximum time for the simulations (if -t 0 the simulations won't stop until the epidemics die out),
  - x is the minimal number of infected individuals that has to be reached to consider a simulation as successful (to avoid considering epidemics that die out very quickly without reaching an exponential phase), 
  - l is a parameter related to the exponent of the power law degree distribution (see Qiao et al. (2018)). To run a simulation under an Erdős-Rényi graph set lambda to -1,
  - s is a prefix for the name of the output folders. 
