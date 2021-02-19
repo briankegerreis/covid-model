@@ -6,6 +6,14 @@ setV <- function(ix,typ,qM,dgi){
   return(sapply(1:length(ix),
                 function(i) if(typ[ix[i]] == 'S' & rbinom(1,1,pE) == 1 ){'V'}else{typ[ix[i]]}))
 }
+                
+Sample <- function(vec){
+  if(length(vec) == 1){
+    return(vec[1])}
+  else{
+    return(sample(vec,1))
+  }
+}
 
 vacc1 <- function(df,nb,D,m,who,N,qM){
   vindx <- which(df$typ %in% who)
