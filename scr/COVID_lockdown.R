@@ -25,6 +25,15 @@ graphPrune1 <- function(g,p){
   return(g)
 }
 
+
+graphPrune2 <- function(g,M){
+  ix<-which(degree(g)>M)
+  for (i in ix) {
+    g <- prune(g,M,i)
+  }
+  return(g)
+}
+
 graphPrune <- function(g,M,p,oLD){
   if(oLD == 1){
     g <- graphPrune1(g,p)
