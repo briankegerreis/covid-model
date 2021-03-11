@@ -1,12 +1,4 @@
-check_begin <- function(t,nI,dnI){
-  return(nI > dnI)
-}
 
-setV <- function(ix,typ,qM,dgi){
-  return(sapply(1:length(ix),
-                function(i) if(typ[ix[i]] == 'S' & rbinom(1,1,pE) == 1 ){'V'}else{typ[ix[i]]}))
-}
-                
 Sample <- function(vec){
   if(length(vec) == 1){
     return(vec[1])}
@@ -15,17 +7,29 @@ Sample <- function(vec){
   }
 }
 
+check_begin <- function(t,nI,dnI){
+  return(nI > dnI)
+}
+
+setV <- function(ix,typ,qM,dgi){
+  return(sapply(1:length(ix),
+                function(i) if(typ[ix[i]] == 'S' & rbinom(1,1,pE) == 1 ){'V'}else{typ[ix[i]]}))
+}
+
 vacc1 <- function(df,nb,D,m,who,N,qM){
   vindx <- which(df$typ %in% who)
   if(length(vindx) < D){
     D <- length(vindx)}
   if(m == 1){
-    m <- length(vindx) 
+    m <- 1:length(vindx) 
   }
-  else{
-    m <- ceiling(N/m)
+  else if(m > 1){
+    m <- 1:ceiling(N/m)
   }
-  lnb <- vindx[sort(df$dg[vindx],decreasing = T,index.return = T)$ix][1:m]
+  else if(m < 0){
+    m <- tail(1:length(vindx),ceiling(-N/m))
+  }
+  lnb <- vindx[sort(df$dg[vindx],decreasing = T,index.return = T)$ix][m]
   ix<-if(D==1){lnb[1]}else{sample(lnb,D)}
   df$v[ix] <- T 
   df$typ[ix] <- setV(ix,df$typ,qM,df$dg[ix])
@@ -73,6 +77,12 @@ vaccinate <- function(df,nb,D,oV,who,N,qM){
   }
   else if(oV == 4){
     df <- vacc1(df,nb,D,N/D,who,N,qM)
+  }
+  else if(oV == 5){
+    df <- vacc1(df,nb,D,-2,who,N,qM)
+  }
+  else if(oV == 6){
+    df <- vacc1(df,nb,D,-N/D,who,N,qM)
   }
   return(df)
 }

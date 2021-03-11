@@ -103,11 +103,11 @@ covid <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,ij){
               sep ='\t', row.names = F,col.names = F,append = F)
   write.table(igraph::as_edgelist(g),file = paste0(pre,N,'/','G','/',ij,'.txt'),sep='\t',
               row.names = F,col.names = F,append = T)
-  write.table(which(df$typ == 'S'), 
-              file = paste0(pre,N,'/','G','/S',ij,'.txt'),
-              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
   write.table( dfSIR(dfpreSIR(df),N),file = paste0(pre,N,'/','SIR','/',ij,'.txt'),
               sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  write.table(igraph::as_edgelist(g),
+              file = paste0(pre,N,'/G','/',ij,'.txt'),sep='\t',
+              row.names = F,col.names = F,append = T)
 }
 
 COVID_control <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre){
