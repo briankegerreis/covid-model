@@ -52,7 +52,7 @@ plt <- ggplot(df,aes(x = t, y = mean))+
   geom_errorbar(aes(ymin=mean-sd,ymax=mean+sd),alpha = 0.3)+
   labs(x = 'Time',y = 'Proportion of infected individuals',color = 'Strategy')+
   theme_minimal(base_size=15)
-ggsave(filename = paste0(dir,'/SIRD','.png'), plot = plt,
+ggsave(filename = paste0(dir,'/infect_curve','.png'), plot = plt,
        device = "png",width = 12, height = 5)  
 
 #### Herd Inmiunity
