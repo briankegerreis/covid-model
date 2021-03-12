@@ -54,7 +54,7 @@ where the additional parameters are:
  - v is the  "vaccination time", i.e. cumulative fraction of the population that has to be infected  before the intervention is made,
  - w indicates which categories of individuals you can vaccinate (1: only susceptibles S, 2: susceptible, recovered or infected SIR),
  - pE is the efficacy of the vaccine,
- - o is the strategy,  1: Uniform, 2: Neighbor, 3: Among popular, 4: Most popular.
+ - o is the strategy,  1: Uniform, 2: Neighbor, 3: Among most connected, 4: Most connected, 5: Among least connected, 6: Least connected.
  
 
 
