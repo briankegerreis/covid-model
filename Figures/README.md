@@ -1,6 +1,6 @@
 # How to plot
 
-Before to run the user need to edit the fist three lines in example_plots.R to add: 
+The user need to edit the fist three lines in example_plots.R to add: 
   - dir: Simulation directory
   - N: Pupularion size 
   - M: Number of simulations in the folder
