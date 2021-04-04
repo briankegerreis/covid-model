@@ -12,22 +12,27 @@
 # pre: output folder prefix
 # ij: I think this keeps track of which sim is running
 
-covid <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,ij){
+#covid <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,ij){
+covid = function(num_sim, num_cores,
+                 pop_size, d_connect, lamb,
+                 p_death, recovery_rate, p_infect,
+                 t_max, f_vulnerable, min_cases, pre, ij){
   hiaux <- c()
   while (T) {
     # set up the graph
     if(lamb > 0){
-      typ <- rep(0,N)
-      g <- block_power_matrix(matrix(d/N),lamb,typ)
+      typ <- rep(0,pop_size)
+      g <- block_power_matrix(matrix(d_connect/pop_size),lamb,typ)
     }
-    else{g <- igraph::erdos.renyi.game(N,d/N)}
-    ns <- setdiff(1:N,igraph::V(g))
+    else{g <- igraph::erdos.renyi.game(pop_size,d_connect/pop_size)}
+    ns <- setdiff(1:pop_size,igraph::V(g))
     if(length(ns)>0){
       g <- igraph::add_vertices(g,length(ns))
     }
     nb <- igraph::adjacent_vertices(g,1:N)
+    neighbors_list = adjacent_vertices(g, 1:pop_size)
     dg <- igraph::degree(g)
-    qM <- quantile(dg,c(q))
+    vulnerable_quantile <- quantile(dg,c(f_vulnerable))
     # typ: (S)usceptible, (I)nfected, (R)ecovered, (D)ead
     # tI: time of infection
     # tR: 
@@ -35,43 +40,70 @@ covid <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,ij){
     # ch: how many people they infected
     # lt: 
     # dg: degree
-    df <- data.frame(ID = 1:N,
-                     typ = rep('S',N),
-                     tI = rep(NA,N),
-                     tR = rep(NA,N),
-                     f = rep(NA,N),
-                     ch = rep(0,N),
-                     lt = rep(NA,N),
-                     dg = dg,
-                     stringsAsFactors = F)
+    #df <- data.frame(ID = 1:N,
+    #                 typ = rep('S',N),
+    #                 tI = rep(NA,N),
+    #                 tR = rep(NA,N),
+    #                 f = rep(NA,N),
+    #                 ch = rep(0,N),
+    #                 lt = rep(NA,N),
+    #                 dg = dg,
+    #                 stringsAsFactors = F)
+    # can wrap these in a function like initialize_base_graph(g, params)
+    set_vertex_attr(g, "typ", value=rep("S",pop_size))
+    set_vertex_attr(g, "t_infected", value=rep(NA,pop_size))
+    set_vertex_attr(g, "t_recovered", value=rep(NA,pop_size))
+    set_vertex_attr(g, "parent", value=rep(NA,pop_size))
+    set_vertex_attr(g, "n_children", value=rep(0,pop_size))
+    set_vertex_attr(g, "lt", value=rep(NA,pop_size))
+    set_vertex_attr(g, "degree", value=dg)
+    set_vertex_attr(g, "p_infect", value=rep(0,pop_size))
+    set_vertex_attr(g, "recovery_rate", value=rep(0,pop_size))
+    set_vertex_attr(g, "infection_rate", value=rep(0,pop_size))
     k <- 1
-    rI <- adjustrI(pI,rR) # adjusted infection rate
-    str <- ' '
-    li = c(sample(which(dg >0),1)) # randomly select patient zero
-    lrI = c(rI)
-    ls = list(nb[[li]]) # find patient zero's neighbors
-    lsl = c(length(nb[[li]]))
-    df$f[li] <- 0
-    df$typ[li] <- 'I'
-    df$lt[li] <- 0
-    df$tI[li] <- 0
-    str <- paste0(' ',li,' ;')
+    patient_zero = sample(which(dg>0),1) # randomly select patient zero
+    set_vertex_attr(g, "typ", patient_zero, "I")
+    # these two could be attributes of new directed edges
+    set_vertex_attr(g, "t_infected", patient_zero, 0)
+    set_vertex_attr(g, "parent", patient_zero, 0)
+    # don't know what this is
+    set_vertex_attr(g, "lt", patient_zero, 0)
+    # these three could be "inherited" upon infection, plus some variation due to mutations
+    set_vertex_attr(g, "p_infect", patient_zero, p_infect)
+    set_vertex_attr(g, "recovery_rate", patient_zero, recovery_rate)
+    set_vertex_attr(g, "infection_rate", patient_zero, adjustrI(p_infect, recovery_rate))
+    #susceptible_neighbors = adjacent_vertices(g, patient_zero)
+    #susceptible_neighbor_counts = length(susceptible_neighbors)
+    str <- paste0(' ',patient_zero,' ;')
     t <- 0
-    nI <-1
+    total_infections = 1
     while(T){
-      lenI <- length(lrI)
-      rateInfect <- sum(lrI*lsl) # expected infections today: infection rate * number of neighbors
-      rateReco <- rR*lenI # expected recoveries today: recovery rate * number of infected
+      infected_patients = which(vertex_attr(g, "typ")=="I")
+      num_infected = length(infected_patients)
+      infection_rates = vertex_attr(g, "infection_rate", infected_patients)
+      # probably not, need to loop
+      s_neighbor_list = vector("list", num_infected)
+      for (i in 1:length(infected_patients)) {
+        all_neighbors = neighbors(g, infected_patients[i])
+        s_neighbors = all_neighbors[which(vertex_attr(g, "typ", all_neighbors)=="S")]
+        s_neighbor_list[[i]] = s_neighbors
+      }
+      s_neighbor_counts = lengths(s_neighbor_list)
+      rateInfect <- sum(infection_rates*s_neighbor_counts) # expected infections today: infection rate * number of neighbors
+      recovery_rates = vertex_attr(g, "recovery_rate", infected_patients)
+      #rateReco <- rR*lenI # expected recoveries today: recovery rate * number of infected
+      rateReco = sum(recovery_rates)
       ratemin <- rateInfect + rateReco
       if(ratemin == 0){
         break
       }
       else{
         texp <- rexp(1,rate = ratemin) # I think this is a modified time step based on the number of people
-        if(tStop < t){
+        if(t > t_max){
           break
         }
         t <- t+texp
+        # 03APR2021: made it here
         if(runif(1) < rateInfect/ratemin){ # an infection occurs
           nI <- nI+1
           ix <- if(length(lrI)>1){sample(1:lenI,1,prob = rI*lsl/rateInfect)}else{1} # find the spreader, weighted by connectivity
@@ -132,18 +164,24 @@ covid <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,ij){
               row.names = F,col.names = F,append = T)
 }
 
-COVID_control <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre){
-  dir.create(paste0(pre,N))
-  dir.create(paste0(pre,N,'/','HI'))
-  dir.create(paste0(pre,N,'/','DG'))
-  dir.create(paste0(pre,N,'/','G'))
-  dir.create(paste0(pre,N,'/','NW'))
-  dir.create(paste0(pre,N,'/','DF'))
-  dir.create(paste0(pre,N,'/','SIR'))
+#COVID_control <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre){
+COVID_control = function(num_sim, num_cores,
+                         pop_size, d_connect, lamb,
+                         p_death, recovery_rate, p_infect,
+                         t_max, f_vulnerable, min_cases, pre){
+  dir.create(paste0(pre,pop_size))
+  dir.create(paste0(pre,pop_size,'/','HI'))
+  dir.create(paste0(pre,pop_size,'/','DG'))
+  dir.create(paste0(pre,pop_size,'/','G'))
+  dir.create(paste0(pre,pop_size,'/','NW'))
+  dir.create(paste0(pre,pop_size,'/','DF'))
+  dir.create(paste0(pre,pop_size,'/','SIR'))
   if(mc == 0){
-    invisible(lapply(1:M, function(i) covid(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,i)))
+    #invisible(lapply(1:M, function(i) covid(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,i)))
+    invisible(lapply(1:num_sim, function(i) covid(num_sim,num_cores,pop_size,d_connect,lamb,p_death,recovery_rate,p_infect,t_max,f_vulnerable,min_cases,pre,i)))
   }
   else(
-    invisible(parallel::mclapply(1:M,function(i) covid(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,i),mc.cores = mc))
+    #invisible(parallel::mclapply(1:M,function(i) covid(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,i),mc.cores = mc))
+    invisible(parallel::mclapply(1:num_sim,function(i) covid(num_sim,num_cores,pop_size,d_connect,lamb,p_death,recovery_rate,p_infect,t_max,f_vulnerable,min_cases,pre,i),mc.cores = num_cores))
   )
 }

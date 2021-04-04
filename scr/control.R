@@ -1,43 +1,54 @@
 # Set COVID code directory 
 
-codedir <- '/N/project/Covid/scr/'
-source(paste0(codedir,'COVID_control.R'))
-source(paste0(codedir,'covidcontrol.R'))
-Rcpp::sourceCpp(paste0(codedir,"Block.cpp"))
+source("base_sim.R")
+source("base_helpers.R")
+Rcpp::sourceCpp("Block.cpp")
 
 library(getopt)
-spec=matrix(c("numSim",'m',1,"integer","number of simulations to run",
-              "mc",'c',1,"integer","number of cores to use",
-              "popSize",'n',1,"integer","population size",
-              "dConnect",'e',1,"integer","expected degree of the graph",
+spec=matrix(c("num_sim",'m',1,"integer","number of simulations to run",
+              "num_cores",'c',1,"integer","number of cores to use",
+              "pop_size",'n',1,"integer","population size",
+              "d_connect",'e',1,"integer","expected degree of the graph",
               "lamb",'l',1,"double","tuning parameter for power law degree distribution. Set to -1 for Erdos-Renyi graph",
-              "d1",'1',1,"double","death probability for highly connected individuals",
-              "d2",'2',1,"double","death probability for less connected individuals",
-              "rR",'r',1,"double","recovery rate (1/duration of infection)",
-              "pI",'i',1,"double","probability of infecting a neighbor",
-              "tStop",'t',1,"double","maximum length of simulations. Set to 0 for no limit (epidemic must die out)",
-              "q",'q',1,"double","fraction of vulnerable individuals, defined as less connected with higher death rate",
-              "x","x",1,"double","minimum number of infections for a successful simulation",
+              "death_high",'1',1,"double","death probability for highly connected individuals",
+              "death_low",'2',1,"double","death probability for less connected individuals",
+              "recovery_rate",'r',1,"double","recovery rate (1/duration of infection)",
+              "p_infect",'i',1,"double","probability of infecting a neighbor",
+              "t_max",'t',1,"integer","maximum length of simulations. Set to 0 for no limit (epidemic must die out)",
+              "f_vulnerable",'f',1,"double","fraction of vulnerable individuals, defined as less connected with higher death rate",
+              "min_cases","x",1,"integer","minimum number of infections for a successful simulation",
               "pre","s",1,'character',"output folder prefix")
             ,byrow=TRUE,ncol=5)
 
 opt=getopt(spec)
-N=opt$popSize
-d=opt$dConnect
+popSize=opt$pop_size
+d_connect=opt$d_connect
 lamb = opt$lamb
-pD=c(opt$d1,opt$d2)
-rR=opt$rR
-pI=opt$pI
-mc=opt$mc 
-M=opt$numSim 
+p_death=c(opt$death_high,opt$death_low)
+recovery_rate=opt$recovery_rate
+p_infect=opt$p_infect
+numCores=opt$num_cores
+numSim=opt$num_sim 
 pre=opt$pre
-if(opt$tStop == 0){
-  tStop = Inf
+if(opt$t_max == 0){
+  t_max = Inf
 }else{
-  tStop = opt$tStop
+  t_max = opt$t_max
 }
-q=opt$q
-nIs=opt$x
+f_vulnerable=opt$f_vulnerable
+min_cases=opt$min_cases
+
+invisible(COVID_control(num_sim, num_cores,
+                        pop_size, d_connect, lamp,
+                        p_death, recovery_rate, p_infect,
+                        t_max, f_vulnerable, min_cases, pre))
+# invisible(COVID_control(M,mc,N,d,lamb,pD,rR,pI,tStop,q,nIs,pre))
 
 
-invisible(COVID_control(M,mc,N,d,lamb,pD,rR,pI,tStop,q,nIs,pre))
+
+
+
+
+
+
+
