@@ -59,7 +59,7 @@ probOfDeath<- function(pD,dg,qM){
   }
 }
 
-
+# can't tell what these functions do but I think they have something to do with summarizing results after the simulations
 act <- function(i,dfsir,df,ncl){
   if(df[i,1] == 'R'){
     indx <- 3
