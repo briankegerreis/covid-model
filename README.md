@@ -1,3 +1,10 @@
+# Brian's thoughts
+What are the qualities of a virus that may evolve over time? Probability of infection, recovery rate, lethality, vaccine resistance
+
+Can we add directed edges to the graph to help track the spread?
+
+Can we use a yaml config file instead of a million command line arguments?
+
 # The role of connectivity on COVID-19 preventive approaches
 
 This repository contains simulation scripts used in the article "The role of connectivity on COVID-19 preventive approaches" (in prep.). 

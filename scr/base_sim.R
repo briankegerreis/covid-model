@@ -12,21 +12,27 @@
 # pre: output folder prefix
 # ij: I think this keeps track of which sim is running
 
+susceptible_neighbors = function(g, x) {
+  all_neighbors = igraph::neighbors(g, x)
+  s_neighbors = all_neighbors[which(igraph::vertex_attr(g, "typ", all_neighbors)=="S")]
+  return(s_neighbors)
+}
+
 #covid <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,ij){
 covid = function(num_sim, num_cores,
                  pop_size, d_connect, lamb,
                  p_death, recovery_rate, p_infect,
-                 t_max, f_vulnerable, min_cases, pre, ij){
+                 t_max, f_vulnerable, min_cases, pre, ij) {
   hiaux <- c()
   while (T) {
     # set up the graph
-    if(lamb > 0){
+    if(lamb > 0) {
       typ <- rep(0,pop_size)
       g <- block_power_matrix(matrix(d_connect/pop_size),lamb,typ)
     }
-    else{g <- igraph::erdos.renyi.game(pop_size,d_connect/pop_size)}
+    else {g <- igraph::erdos.renyi.game(pop_size,d_connect/pop_size)}
     ns <- setdiff(1:pop_size,igraph::V(g))
-    if(length(ns)>0){
+    if(length(ns)>0) {
       g <- igraph::add_vertices(g,length(ns))
     }
     nb <- igraph::adjacent_vertices(g,1:N)
@@ -52,7 +58,7 @@ covid = function(num_sim, num_cores,
     # can wrap these in a function like initialize_base_graph(g, params)
     set_vertex_attr(g, "typ", value=rep("S",pop_size))
     set_vertex_attr(g, "t_infected", value=rep(NA,pop_size))
-    set_vertex_attr(g, "t_recovered", value=rep(NA,pop_size))
+    set_vertex_attr(g, "t_resolved", value=rep(NA,pop_size)) # "Recovered" isn't always true, is it
     set_vertex_attr(g, "parent", value=rep(NA,pop_size))
     set_vertex_attr(g, "n_children", value=rep(0,pop_size))
     set_vertex_attr(g, "lt", value=rep(NA,pop_size))
@@ -60,6 +66,7 @@ covid = function(num_sim, num_cores,
     set_vertex_attr(g, "p_infect", value=rep(0,pop_size))
     set_vertex_attr(g, "recovery_rate", value=rep(0,pop_size))
     set_vertex_attr(g, "infection_rate", value=rep(0,pop_size))
+    set_vertex_attr(g, "p_death", value=ifelse(dg<vulnerable_quantile, p_death[2], p_death[1])
     k <- 1
     patient_zero = sample(which(dg>0),1) # randomly select patient zero
     set_vertex_attr(g, "typ", patient_zero, "I")
@@ -77,16 +84,14 @@ covid = function(num_sim, num_cores,
     str <- paste0(' ',patient_zero,' ;')
     t <- 0
     total_infections = 1
-    while(T){
+    while(T) {
       infected_patients = which(vertex_attr(g, "typ")=="I")
       num_infected = length(infected_patients)
       infection_rates = vertex_attr(g, "infection_rate", infected_patients)
       # probably not, need to loop
       s_neighbor_list = vector("list", num_infected)
       for (i in 1:length(infected_patients)) {
-        all_neighbors = neighbors(g, infected_patients[i])
-        s_neighbors = all_neighbors[which(vertex_attr(g, "typ", all_neighbors)=="S")]
-        s_neighbor_list[[i]] = s_neighbors
+        s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i])
       }
       s_neighbor_counts = lengths(s_neighbor_list)
       rateInfect <- sum(infection_rates*s_neighbor_counts) # expected infections today: infection rate * number of neighbors
@@ -94,74 +99,78 @@ covid = function(num_sim, num_cores,
       #rateReco <- rR*lenI # expected recoveries today: recovery rate * number of infected
       rateReco = sum(recovery_rates)
       ratemin <- rateInfect + rateReco
-      if(ratemin == 0){
-        break
+      if(ratemin == 0) {
+        break # the outbreak ended
       }
-      else{
+      else {
         texp <- rexp(1,rate = ratemin) # I think this is a modified time step based on the number of people
-        if(t > t_max){
+        if(t > t_max) {
           break
         }
         t <- t+texp
-        # 03APR2021: made it here
-        if(runif(1) < rateInfect/ratemin){ # an infection occurs
-          nI <- nI+1
-          ix <- if(length(lrI)>1){sample(1:lenI,1,prob = rI*lsl/rateInfect)}else{1} # find the spreader, weighted by connectivity
-          ni <- if(length(ls[[ix]]) == 1){ls[[ix]][1]}else{sample(ls[[ix]],1)} # find the new case among the spreader's neighbors
-          lni <- unlist(lapply(li,function(i){if(ni %in% nb[[i]]){i}})) # don't know what this does
-          df$f[ni] <- li[ix] # assign who spread it to new case
-          df$typ[ni] <- 'I' # change status to infected
-          df$tI[ni] <- t # assigned time of infection
-          df$ch[df$f[ni]]<-df$ch[df$f[ni]]+1 # add 1 to spreader's infected count
-          str <- newick(df$f[ni],ni,t-df$lt[df$f[ni]],str) # I think this makes a tree to keep track on infections
-          df$lt[ni] <- t # don't know what this means
-          df$lt[df$f[ni]] <-t # or this
-          inix <-which(li %in% lni) # or this
-          ls[inix] = lapply(inix, function(i){ls[[i]][ls[[i]] != ni]}) # or this
-          lsl[inix] <- lsl[inix]-1 # or this
-          li <- c(li,ni) # add new case to the list of infected
-          lrI <- c(lrI,rI) # add new infection rate to the list of infected
-          ls = append(ls,list(nb[[ni]][df$typ[nb[[ni]]] == 'S'])) # add new susceptible neighbors
-          lsl = c(lsl,length(nb[[ni]][df$typ[nb[[ni]]] == 'S'])) # add connectivity of new case
+        if(runif(1) < rateInfect/ratemin) { # an infection occurs
+          total_infections = total_infections + 1
+          spreader = sample(infected_patients, 1, prob=infection_rates*s_neighbor_counts/rateInfect) # find the spreader, weighted by infection rate and susceptible neighbors
+          new_case = sample(susceptible_neighbors(g, spreader), 1) # find the new case among the spreader's susceptible neighbors
+          set_vertex_attr(g, "parent", new_case, spreader)
+          set_vertex_attr(g, "typ", new_case, "I")
+          set_vertex_attr(g, "t_infected", new_case, t)
+          set_vertex_attr(g, "p_infect", new_case, p_infect)
+          set_vertex_attr(g, "recovery_rate", new_case, recovery_rate)
+          set_vertex_attr(g, "infection_rate", new_case, adjustrI(p_infect, recovery_rate))
+          set_vertex_attr(g, "n_children", spreader, vertex_attr(g, "n_children", spreader)+1)
+          # I think a lot of the mystery code down here is about making necessary adjustments to s_neighbors and s_neighbor_counts
+          # and I don't think it's necessary here since it will happen at the start of the next loop before any break statements
+          # str <- newick(df$f[ni],ni,t-df$lt[df$f[ni]],str) # I think this makes a tree to keep track on infections
+          # df$lt[ni] <- t # don't know what this means
+          # df$lt[df$f[ni]] <-t # or this
+          # inix <-which(li %in% lni) # or this
+          # ls[inix] = lapply(inix, function(i){ls[[i]][ls[[i]] != ni]}) # or this
+          # lsl[inix] <- lsl[inix]-1 # or this
+          # li <- c(li,ni) # add new case to the list of infected
+          # lrI <- c(lrI,rI) # add new infection rate to the list of infected
+          # ls = append(ls,list(nb[[ni]][df$typ[nb[[ni]]] == 'S'])) # add new susceptible neighbors
+          # lsl = c(lsl,length(nb[[ni]][df$typ[nb[[ni]]] == 'S'])) # add connectivity of new case
         }
-        else{ # a recovery or death occurs
-          ix <- if(length(lrI)>1){sample(1:lenI,1)}else{1}
-          df$typ[li[ix]] <-  if(rbinom(1,1, probOfDeath(pD,df$dg[li[ix]],qM))==1){'D'}else{'R'}
-          df$tR[li[ix]] <- t
-          str <- newick(li[ix],F,t-df$lt[li[ix]],str)
-          li <- li[-ix]
-          ls <- ls[-ix]
-          lsl <- lsl[-ix]
-          lrI <- lrI[-ix]
+        else { # a recovery or death occurs
+          patient = sample(infected_patients, 1)
+          outcome = if(rbinom(1,1, vertex_attr(g, "p_death", patient)==1){"D"}else{"R"}
+          set_vertex_attr(g, "typ", patient, outcome)
+          set_vertex_attr(g, "t_resolved", patient, t)
+          # str <- newick(li[ix],F,t-df$lt[li[ix]],str)
+          # li <- li[-ix]
+          # ls <- ls[-ix]
+          # lsl <- lsl[-ix]
+          # lrI <- lrI[-ix]
         }
       }
       k <- k+1
     }
-    hiaux <- c(hiaux,sum(df$typ != 'S')) # keep track of how many people are not susceptible
-    if(nI  > nIs || t>tStop){ # arrive here by having zero new events at this time point or by running out of time. # restart sim if not enough infections happened
+    hiaux <- c(hiaux,length(which(vertex_attr(g, "typ")!="S")) # keep track of how many people are not susceptible
+    if(nI  > nIs || t>tStop) { # arrive here by having zero new events at this time point or by running out of time. # restart sim if not enough infections happened
       break
     }
   }
-  write.table(str, file = paste0(pre,N,'/','NW','/',ij,'.txt'),
-              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  write.table(data.frame(hi = hiaux,lvl = pre, N= N), 
-              file = paste0(pre,N,'/','HI','/',ij,'.txt'),
-              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  write.table(df, 
-              file = paste0(pre,N,'/','DF','/',ij,'.txt'),
-              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  write.table(which(df$typ == 'S'), 
-              file = paste0(pre,N,'/','G','/S',ij,'.txt'),
-              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  write.table(data.frame(dg = dg,lvl = pre, N= N ),file = paste0(pre,N,'/','DG','/',ij,'.txt'),
-              sep ='\t', row.names = F,col.names = F,append = F)
-  write.table(igraph::as_edgelist(g),file = paste0(pre,N,'/','G','/',ij,'.txt'),sep='\t',
-              row.names = F,col.names = F,append = T)
-  write.table( dfSIR(dfpreSIR(df),N),file = paste0(pre,N,'/','SIR','/',ij,'.txt'),
-              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  write.table(igraph::as_edgelist(g),
-              file = paste0(pre,N,'/G','/',ij,'.txt'),sep='\t',
-              row.names = F,col.names = F,append = T)
+  # write.table(str, file = paste0(pre,N,'/','NW','/',ij,'.txt'),
+  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  # write.table(data.frame(hi = hiaux,lvl = pre, N= N), 
+  #             file = paste0(pre,N,'/','HI','/',ij,'.txt'),
+  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  # write.table(df, 
+  #             file = paste0(pre,N,'/','DF','/',ij,'.txt'),
+  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  # write.table(which(df$typ == 'S'), 
+  #             file = paste0(pre,N,'/','G','/S',ij,'.txt'),
+  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  # write.table(data.frame(dg = dg,lvl = pre, N= N ),file = paste0(pre,N,'/','DG','/',ij,'.txt'),
+  #             sep ='\t', row.names = F,col.names = F,append = F)
+  # write.table(igraph::as_edgelist(g),file = paste0(pre,N,'/','G','/',ij,'.txt'),sep='\t',
+  #             row.names = F,col.names = F,append = T)
+  # write.table( dfSIR(dfpreSIR(df),N),file = paste0(pre,N,'/','SIR','/',ij,'.txt'),
+  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  # write.table(igraph::as_edgelist(g),
+  #             file = paste0(pre,N,'/G','/',ij,'.txt'),sep='\t',
+  #             row.names = F,col.names = F,append = T)
 }
 
 #COVID_control <- function(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre){
