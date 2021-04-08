@@ -56,29 +56,29 @@ covid = function(num_sim, num_cores,
     #                 dg = dg,
     #                 stringsAsFactors = F)
     # can wrap these in a function like initialize_base_graph(g, params)
-    set_vertex_attr(g, "typ", value=rep("S",pop_size))
-    set_vertex_attr(g, "t_infected", value=rep(NA,pop_size))
-    set_vertex_attr(g, "t_resolved", value=rep(NA,pop_size)) # "Recovered" isn't always true, is it
-    set_vertex_attr(g, "parent", value=rep(NA,pop_size))
-    set_vertex_attr(g, "n_children", value=rep(0,pop_size))
-    set_vertex_attr(g, "lt", value=rep(NA,pop_size))
-    set_vertex_attr(g, "degree", value=dg)
-    set_vertex_attr(g, "p_infect", value=rep(0,pop_size))
-    set_vertex_attr(g, "recovery_rate", value=rep(0,pop_size))
-    set_vertex_attr(g, "infection_rate", value=rep(0,pop_size))
-    set_vertex_attr(g, "p_death", value=ifelse(dg<vulnerable_quantile, p_death[2], p_death[1])
+    g = set_vertex_attr(g, "typ", value=rep("S",pop_size))
+    g = set_vertex_attr(g, "t_infected", value=rep(NA,pop_size))
+    g = set_vertex_attr(g, "t_resolved", value=rep(NA,pop_size)) # "Recovered" isn't always true, is it
+    g = set_vertex_attr(g, "parent", value=rep(NA,pop_size))
+    g = set_vertex_attr(g, "n_children", value=rep(0,pop_size))
+    g = set_vertex_attr(g, "lt", value=rep(NA,pop_size))
+    g = set_vertex_attr(g, "degree", value=dg)
+    g = set_vertex_attr(g, "p_infect", value=rep(0,pop_size))
+    g = set_vertex_attr(g, "recovery_rate", value=rep(0,pop_size))
+    g = set_vertex_attr(g, "infection_rate", value=rep(0,pop_size))
+    g = set_vertex_attr(g, "p_death", value=ifelse(dg<vulnerable_quantile, p_death[2], p_death[1])
     k <- 1
     patient_zero = sample(which(dg>0),1) # randomly select patient zero
-    set_vertex_attr(g, "typ", patient_zero, "I")
+    g = set_vertex_attr(g, "typ", patient_zero, "I")
     # these two could be attributes of new directed edges
-    set_vertex_attr(g, "t_infected", patient_zero, 0)
-    set_vertex_attr(g, "parent", patient_zero, 0)
+    g = set_vertex_attr(g, "t_infected", patient_zero, 0)
+    g = set_vertex_attr(g, "parent", patient_zero, 0)
     # don't know what this is
-    set_vertex_attr(g, "lt", patient_zero, 0)
+    g = set_vertex_attr(g, "lt", patient_zero, 0)
     # these three could be "inherited" upon infection, plus some variation due to mutations
-    set_vertex_attr(g, "p_infect", patient_zero, p_infect)
-    set_vertex_attr(g, "recovery_rate", patient_zero, recovery_rate)
-    set_vertex_attr(g, "infection_rate", patient_zero, adjustrI(p_infect, recovery_rate))
+    g = set_vertex_attr(g, "p_infect", patient_zero, p_infect)
+    g = set_vertex_attr(g, "recovery_rate", patient_zero, recovery_rate)
+    g = set_vertex_attr(g, "infection_rate", patient_zero, adjustrI(p_infect, recovery_rate))
     #susceptible_neighbors = adjacent_vertices(g, patient_zero)
     #susceptible_neighbor_counts = length(susceptible_neighbors)
     str <- paste0(' ',patient_zero,' ;')
@@ -112,13 +112,13 @@ covid = function(num_sim, num_cores,
           total_infections = total_infections + 1
           spreader = sample(infected_patients, 1, prob=infection_rates*s_neighbor_counts/rateInfect) # find the spreader, weighted by infection rate and susceptible neighbors
           new_case = sample(susceptible_neighbors(g, spreader), 1) # find the new case among the spreader's susceptible neighbors
-          set_vertex_attr(g, "parent", new_case, spreader)
-          set_vertex_attr(g, "typ", new_case, "I")
-          set_vertex_attr(g, "t_infected", new_case, t)
-          set_vertex_attr(g, "p_infect", new_case, p_infect)
-          set_vertex_attr(g, "recovery_rate", new_case, recovery_rate)
-          set_vertex_attr(g, "infection_rate", new_case, adjustrI(p_infect, recovery_rate))
-          set_vertex_attr(g, "n_children", spreader, vertex_attr(g, "n_children", spreader)+1)
+          g = set_vertex_attr(g, "parent", new_case, spreader)
+          g = set_vertex_attr(g, "typ", new_case, "I")
+          g = set_vertex_attr(g, "t_infected", new_case, t)
+          g = set_vertex_attr(g, "p_infect", new_case, p_infect)
+          g = set_vertex_attr(g, "recovery_rate", new_case, recovery_rate)
+          g = set_vertex_attr(g, "infection_rate", new_case, adjustrI(p_infect, recovery_rate))
+          g = set_vertex_attr(g, "n_children", spreader, vertex_attr(g, "n_children", spreader)+1)
           # I think a lot of the mystery code down here is about making necessary adjustments to s_neighbors and s_neighbor_counts
           # and I don't think it's necessary here since it will happen at the start of the next loop before any break statements
           # str <- newick(df$f[ni],ni,t-df$lt[df$f[ni]],str) # I think this makes a tree to keep track on infections
@@ -135,8 +135,8 @@ covid = function(num_sim, num_cores,
         else { # a recovery or death occurs
           patient = sample(infected_patients, 1)
           outcome = if(rbinom(1,1, vertex_attr(g, "p_death", patient)==1){"D"}else{"R"}
-          set_vertex_attr(g, "typ", patient, outcome)
-          set_vertex_attr(g, "t_resolved", patient, t)
+          g = set_vertex_attr(g, "typ", patient, outcome)
+          g = set_vertex_attr(g, "t_resolved", patient, t)
           # str <- newick(li[ix],F,t-df$lt[li[ix]],str)
           # li <- li[-ix]
           # ls <- ls[-ix]
