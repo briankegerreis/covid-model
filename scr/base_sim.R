@@ -56,6 +56,8 @@ covid = function(num_sim, num_cores,
     #                 dg = dg,
     #                 stringsAsFactors = F)
     # can wrap these in a function like initialize_base_graph(g, params)
+    # could use "covid_" attributes that are transmissible
+    #### g = initialize_base_graph(g, params)
     g = set_vertex_attr(g, "typ", value=rep("S",pop_size))
     g = set_vertex_attr(g, "t_infected", value=rep(NA,pop_size))
     g = set_vertex_attr(g, "t_resolved", value=rep(NA,pop_size)) # "Recovered" isn't always true, is it
@@ -68,6 +70,8 @@ covid = function(num_sim, num_cores,
     g = set_vertex_attr(g, "infection_rate", value=rep(0,pop_size))
     g = set_vertex_attr(g, "p_death", value=ifelse(dg<vulnerable_quantile, p_death[2], p_death[1])
     k <- 1
+    #### g = initialize_patient_zero(g, params)
+    # or this could be part of the first initialization function
     patient_zero = sample(which(dg>0),1) # randomly select patient zero
     g = set_vertex_attr(g, "typ", patient_zero, "I")
     # these two could be attributes of new directed edges
@@ -85,10 +89,13 @@ covid = function(num_sim, num_cores,
     t <- 0
     total_infections = 1
     while(T) {
+      #### g = vaccinate(g, vacc_rate, strategy, test_for_eligibility) # vaccinate 1% per day, either most connected or random, OK vaccinating R patients or S only?
       infected_patients = which(vertex_attr(g, "typ")=="I")
       num_infected = length(infected_patients)
+      #### rates = calculate_rates(g)
+      #### rateInfect = rates$infect
+      #### rateReco = rates$reco
       infection_rates = vertex_attr(g, "infection_rate", infected_patients)
-      # probably not, need to loop
       s_neighbor_list = vector("list", num_infected)
       for (i in 1:length(infected_patients)) {
         s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i])
@@ -112,6 +119,8 @@ covid = function(num_sim, num_cores,
           total_infections = total_infections + 1
           spreader = sample(infected_patients, 1, prob=infection_rates*s_neighbor_counts/rateInfect) # find the spreader, weighted by infection rate and susceptible neighbors
           new_case = sample(susceptible_neighbors(g, spreader), 1) # find the new case among the spreader's susceptible neighbors
+          #### g = infect(g, spreader, new_case)
+          #### g = infect_and_mutate(g, spreader, new_case, mutation_prob, mutation_rate)
           g = set_vertex_attr(g, "parent", new_case, spreader)
           g = set_vertex_attr(g, "typ", new_case, "I")
           g = set_vertex_attr(g, "t_infected", new_case, t)
