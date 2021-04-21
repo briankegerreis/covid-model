@@ -51,8 +51,8 @@ covid = function(num_sim, num_cores,
       infected_patients = which(vertex_attr(g, "typ")=="I")
       num_infected = length(infected_patients)
       rates = calculate_infection_recovery_rates(g, infected_patients)
-      rateInfect = rates$infect
-      rateReco = rates$reco
+      rateInfect = rates$rateInfect
+      rateReco = rates$rateReco
       ratemin <- rateInfect + rateReco
       if(ratemin == 0) {
         break # the outbreak ended
@@ -65,7 +65,11 @@ covid = function(num_sim, num_cores,
         t <- t+texp
         if(runif(1) < rateInfect/ratemin) { # an infection occurs
           total_infections = total_infections + 1
-          spreader = sample(infected_patients, 1, prob=rates$infection_rates*rates$s_neighbor_counts/rateInfect) # find the spreader, weighted by infection rate and susceptible neighbors
+          # calculate_infection_recovery_rates should return weights and susceptibilities too
+          # figure out which infected patient spreads with spreader_ix (replace infected_patients with 1:length(infected_patients) when sampling), then spreader = infected_patients[spreader_ix]
+          # then new case probabilities are weights[[spreader_ix]] * susceptibilities[[spreader_ix]], could also return another list from that function where I mapply weights*susceptibilities
+          # or just go back through the process of getting weights and susceptibilities for spreader_ix
+          spreader = sample(infected_patients, 1, prob=rates$infection_coefs/rateInfect) # find the spreader, weighted by infection rate, connection strength to susceptible neighbors, and susceptibility of neighbors
           new_case = sample(susceptible_neighbors(g, spreader), 1) # find the new case among the spreader's susceptible neighbors
           #### g = infect_and_mutate(g, spreader, new_case, mutation_prob, mutation_rate)
           g = infect_new_case(g, spreader, new_case, t, names(covid_attr))

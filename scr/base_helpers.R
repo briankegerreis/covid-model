@@ -124,23 +124,45 @@ infect_new_case = function(g, spreader, new_case, t, covid_attr_names) {
 susceptible_neighbors = function(g, x) {
   all_neighbors = igraph::neighbors(g, x)
   s_neighbors = all_neighbors[which(igraph::vertex_attr(g, "typ", all_neighbors)=="S")]
-  return(s_neighbors)
+  return(as.integer(s_neighbors)) # no need to deal with the 'igraph.vs' class
+}
+
+# convert individual and vector of neighbors to c(indiv, n1, indiv, n2, indiv, n3...) to extract edges later
+generate_vertex_list = function(x, ns) {
+  vertex_list = integer(0)
+  for (i in 1:length(ns)) {
+    vertex_list = c(vertex_list, x, ns[i])
+  }
+  return(vertex_list)
 }
 
 # calculate infection rate and recovery rate
+# s_neighbor_list: list of each infected patient's susceptible neighbors
+# s_edge_list: list of each infected patient's edges to susceptible neighbors
 calculate_infection_recovery_rates = function(g, infected_patients) {
   infection_rates = vertex_attr(g, "infection_rate", infected_patients)
   s_neighbor_list = vector("list", length(infected_patients))
+  neighbor_susceptibility_list = vector("list", length(infected_patients))
+  s_edge_list = vector("list", length(infected_patients))
+  edge_weight_list = vector("list", length(infected_patients))
   for (i in 1:length(infected_patients)) {
+    # with no susceptible neighbors, these are all integer(0)
     s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i])
-  }
-  s_neighbor_counts = lengths(s_neighbor_list)
-  # to account for vaccines that are not 100% effective, would need to sum everyone's susceptibility, or 1-vacc_efficacy
-  # using the modifier as a covid attribute should mean that this takes care of vaccine evasion as well
-  rateInfect <- sum(infection_rates*s_neighbor_counts) # expected infections today: infection rate * number of neighbors
+    neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", s_neighbor_list[[i]])
+    vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
+    s_edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
+    edge_weight_list[[i]] = edge_attr(g, "weight", s_edge_list[[i]])
+  } 
+  # get infection probabilities (or do this in the sim code)
+  # need to be very careful with mapply, if an element is NULL it just recycles something else
+  # empty things should be integer(0)
+  # infection rate times the dot product of edge weights and susceptibilities
+  # in anybody has zero susceptible neighbors, it's infection_rate*integer(0)%*%integer(0), and that dot product is zero, so it's zero
+  infection_coefs = mapply(function(x,y,z) x*y%*%z, infection_rates, edge_weight_list, neighbor_susceptibility_list)
+  rateInfect = sum(infection_coefs)
   recovery_rates = vertex_attr(g, "recovery_rate", infected_patients)
   rateReco = sum(recovery_rates)
-  return(list(rateInfect=rateInfect, rateReco=rateReco, infection_rates=infection_rates, s_neighbor_counts=s_neighbor_counts))
+  return(list(rateInfect=rateInfect, rateReco=rateReco, infection_rates=infection_rates, infection_coefs=infection_coefs))
 }
 
 # can't tell what these functions do but I think they have something to do with summarizing results after the simulations
