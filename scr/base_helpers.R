@@ -138,7 +138,10 @@ generate_vertex_list = function(x, ns) {
 
 # calculate infection rate and recovery rate
 # s_neighbor_list: list of each infected patient's susceptible neighbors
+# neighbor_susceptbility_list: list of each infected patient's neighbors' susceptibility values
 # s_edge_list: list of each infected patient's edges to susceptible neighbors
+# edge_weight_list: list of each infected patient's edge weights to susceptible neighbors
+# I would like to set these as edge attributes, but they have to be scalars
 calculate_infection_recovery_rates = function(g, infected_patients) {
   infection_rates = vertex_attr(g, "infection_rate", infected_patients)
   s_neighbor_list = vector("list", length(infected_patients))
@@ -152,17 +155,25 @@ calculate_infection_recovery_rates = function(g, infected_patients) {
     vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
     s_edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
     edge_weight_list[[i]] = edge_attr(g, "weight", s_edge_list[[i]])
-  } 
-  # get infection probabilities (or do this in the sim code)
+  }
+  # mapply is just a for loop that iterates over the elements of all given arguments
+  # coefficients that modify susceptible neighbors' odds of catching disease
+  # a list of vectors
+  catch_coefficients = mapply(function(x,y) x*y, edge_weight_list, neighbor_susceptibility_list)
+  # coefficients that modify patients' odds of spreading disease
+  # a vector
+  spread_coefficients = mapply(function(x,y), x*sum(y), infection_rates, catch_coefficients)
+  # spread_coefs could be directly calculated with mapply(function(x,y,z) x*y%*%z, infection_rates, edge_weight_list, neighbor_susceptibility_list)
+  # but we need the catch_coefs elsewhere, so it doesn't hurt to do the calculation in 2 steps
   # need to be very careful with mapply, if an element is NULL it just recycles something else
-  # empty things should be integer(0)
-  # infection rate times the dot product of edge weights and susceptibilities
-  # in anybody has zero susceptible neighbors, it's infection_rate*integer(0)%*%integer(0), and that dot product is zero, so it's zero
-  infection_coefs = mapply(function(x,y,z) x*y%*%z, infection_rates, edge_weight_list, neighbor_susceptibility_list)
-  rateInfect = sum(infection_coefs)
+  # empty things should be integer(0), which mapply is happy to use
+  # integer(0)*integer(0) = integer(0)
+  # sum(integer(0)) = 0
+  rateInfect = sum(spread_coefficients)
   recovery_rates = vertex_attr(g, "recovery_rate", infected_patients)
   rateReco = sum(recovery_rates)
-  return(list(rateInfect=rateInfect, rateReco=rateReco, infection_rates=infection_rates, infection_coefs=infection_coefs))
+  return(list(rateInfect=rateInfect, rateReco=rateReco,
+              spread_coefficients=spread_coefficients, catch_coefficients=catch_coefficients))
 }
 
 # can't tell what these functions do but I think they have something to do with summarizing results after the simulations

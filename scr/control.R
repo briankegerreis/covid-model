@@ -1,6 +1,6 @@
 # Set COVID code directory 
 
-source("base_sim.R")
+source("base_sim_slim.R")
 source("base_helpers.R")
 Rcpp::sourceCpp("Block.cpp")
 

@@ -65,18 +65,18 @@ covid = function(num_sim, num_cores,
         t <- t+texp
         if(runif(1) < rateInfect/ratemin) { # an infection occurs
           total_infections = total_infections + 1
-          # calculate_infection_recovery_rates should return weights and susceptibilities too
-          # figure out which infected patient spreads with spreader_ix (replace infected_patients with 1:length(infected_patients) when sampling), then spreader = infected_patients[spreader_ix]
-          # then new case probabilities are weights[[spreader_ix]] * susceptibilities[[spreader_ix]], could also return another list from that function where I mapply weights*susceptibilities
-          # or just go back through the process of getting weights and susceptibilities for spreader_ix
-          spreader = sample(infected_patients, 1, prob=rates$infection_coefs/rateInfect) # find the spreader, weighted by infection rate, connection strength to susceptible neighbors, and susceptibility of neighbors
-          new_case = sample(susceptible_neighbors(g, spreader), 1) # find the new case among the spreader's susceptible neighbors
+          # because all of the infection and spread coefficients can't be vertex attributes, need to first find which patient spreads the disease (spreader_ix), then figure out which member of the population that is (spreader)
+          spreader_ix = sample(1:length(infected_patients), 1, prob=rates$infection_coefficients/rateInfect) # find the spreader, weighted by infection rate, connection strength to susceptible neighbors, and susceptibility of neighbors
+          spreader = infected_patients[spreader_ix]
+          catch_probabilities = rates$catch_coefficients[[spreader_ix]]/sum(rates$catch_coefficients[[spreader_ix]]
+          new_case = sample(susceptible_neighbors(g, spreader), 1, prob=catch_probabilities)) # find the new case among the spreader's susceptible neighbors
           #### g = infect_and_mutate(g, spreader, new_case, mutation_prob, mutation_rate)
           g = infect_new_case(g, spreader, new_case, t, names(covid_attr))
           # str <- newick(df$f[ni],ni,t-df$lt[df$f[ni]],str) # I think this makes a tree to keep track of infections
         }
         else { # a recovery or death occurs
-          patient = sample(infected_patients, 1)
+          # is this right?
+          patient = sample(infected_patients, 1, prob=get_vertex_attr(g,"recovery_rate",infected_patients)/rateReco)
           outcome = if(rbinom(1,1, vertex_attr(g, "p_death", patient)==1){"D"}else{"R"}
           g = set_vertex_attr(g, "typ", patient, outcome)
           g = set_vertex_attr(g, "t_resolved", patient, t)
