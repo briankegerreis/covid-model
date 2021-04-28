@@ -45,6 +45,24 @@ adjustrI <- function(pI,rR){
   return((pI/(1-pI))*rR)
 }
 
+# convenience function to calculate infection rate when someone gets sick
+calculate_rI = function(g, patient) {
+  pI = vertex_attr(g, "p_infect", patient)
+  rR = vertex_attr(g, "recovery_rate", patient)
+  rI = adjustrI(pI,rR)
+  g = set_vertex_attr(g, "infection_rate", patient, rI)
+  return(g)
+}
+
+# convenience function to determine p_death when someone gets sick based on their risk group
+determine_p_death = function(g, patient) {
+  p_death_lo = vertex_attr(g, "p_death_lo", patient)
+  p_death_hi = vertex_attr(g, "p_death_hi", patient)
+  p_death = ifelse(vertex_attr(g, "risk", patient)=="lo", p_death_lo, p_death_hi)
+  g = set_vertex_attr(g, "p_death", patient, p_death)
+  return(g)
+}
+
 # Calculate probability of infection in terms of infection and recovery rate.
 
 infectP <- function(rI,rR){
@@ -64,7 +82,7 @@ initialize_population_attrs = function(g, attr_list) {
   # for things that start the same for the whole population
   # each attr has one value
   pop_size = len(V(g))
-  for (attr in names(attr_list) {
+  for (attr in names(attr_list)) {
     g = set_vertex_attr(g, attr, value=rep(attr_list[[attr]],pop_size))
   }
   return(g)
@@ -74,7 +92,7 @@ initialize_population_attrs = function(g, attr_list) {
 initialize_personal_attrs = function(g, attr_list) {
   # for things that vary across the population
   # each attr is the size of the population
-  for (attr in names(attr_list) {
+  for (attr in names(attr_list)) {
     g = set_vertex_attr(g, attr, value=attr_list[[attr]])
   }
   return(g)
@@ -90,12 +108,133 @@ initialize_patient_zero = function(g, patient_zero, attr_list) {
     set_vertex_attr("parent", patient_zero, 0) %>%
     set_vertex_attr("lt", patient_zero, 0)
   # give patient zero default covid attributes
-  for (attr in names(attr_list) {
+  for (attr in names(attr_list)) {
     g = set_vertex_attr(g, attr, patient_zero, attr_list[[attr]])
   }
-  pI = attr_list[["p_infect"]]
-  rR = attr_list[["recovery_rate"]]
-  g = set_vertex_attr(g, "infection_rate", patient_zero, adjustrI(pI,rR))
+  g = calculate_infection_rate(g, patient_zero)
+  g = determine_p_death(g, patient_zero)
+  return(g)
+}
+
+# determine if and how a random mutation occurs
+# p_mutate_x is the probability of a change
+# p_increase_x is the probability of in increase, given a change
+# p_corr is the probability that infection and death both mutate at once, according to p_mutate_infection
+# force_opposite_signs forces infection and death to mutate in opposite directions when the p_corr check succeeds
+# mutate_array contains ones and zeros determing whether infection and death will mutate
+# sign_array contains 1 and -1 determining whether the mutations are increases or decreases
+# finally, calls mutation_function and returns the modified graph
+mutation_control = function(g, patient, p_mutate_infection, p_mutate_death, p_increase_infection, p_increase_death,
+                            infection_step, death_step_lo, death_step_hi, p_corr, force_opposite_signs, growth=c("linear","multiplicative")) {
+  if (rbinom(1,1,p_corr)==1) { # if both characteristics are changing at once
+    mutate = rbinom(1,1,p_mutate_infection)
+    if (mutate==0) { # do nothing
+      return(g)
+    } else {
+      mutate_array = rep(mutate,2) # set both characteristics to mutate
+      if (force_opposite_signs) {
+        s = rbinom(1,1,p_increase_infection)
+        sign_array = c(s, 1-s)
+      } else {
+        sign_array = rbinom(2,1,c(p_increase_infection,p_increase_death))
+      }
+    }
+  } else {
+    mutate_array = rbinom(2,1,c(p_mutate_infection,p_mutate_death))
+    sign_array = rbinom(2,1,c(p_increase_infection,p_increase_death))
+    if (sum(mutate_array)==0) { # do nothing
+      return(g)
+    }
+  }
+  sign_array = 2*sign_array-1 # convert 0 to -1
+  g = mutation_function2(g, patient, mutate_array, sign_array, infection_step, death_step_lo, death_step_hi, growth)
+  return(g)
+}
+
+# one possible way to mutate infection and death probabilities
+# p_infect and p_death are proportional to modifier coefficients
+# for additive mutation, coefficients increase linearly like c=c+x
+# for multiplicative mutation, coefficients increase multiplicatively like c=c*(1+x)
+# this makes it easier to accommodate multiple death rates, infection probabilities, and recovery rates (if we want) throughout the population
+# but it is difficult to bound these coefficients, so the final probabilities have to be bounded after the initial calculation
+mutation_function = function(g, patient, mutate_array, sign_array, infection_step, death_step, growth) {
+  infection_delta = mutate_array[1]*sign_array[1]*infection_step
+  death_delta = mutate_array[2]*sign_array[1]*death_step
+  if (growth=="additive") {
+    infection_coef_new = vertex_attr(g, "modifier_p_infect", patient) + infection_delta
+    infection_coef_new = max(c(infection_step, infection_coef_new)) # not allowed to be 0
+    death_coef_new = vertex_attr(g, "modifier_p_death", patient) + death_delta
+    death_coef_new = max(c(0, death_coef_new)) # allowed to be 0
+  } else if (growth=="multiplicative") {
+    infection_coef_new = vertex_attr(g, "modifier_p_infect", patient) * (1+infection_delta) # cannot possibly reach 0
+    death_coef_new = vertex_attr(g, "modifier_p_death", patient) * (1+death_delta) # cannot possibly reach 0
+  }
+  g = set_vertex_attr(g, "modifier_p_infect", patient, infection_coef_new)
+  g = set_vertex_attr(g, "modifier_p_death", patient, death_coef_new)
+  p_infect_new = vertex_attr(g, "p_infect", patient) * infection_coef_new
+  if (growth)=="additive" {
+    p_infect_new = min(p_infect_new, 1-vertex_attr(g, "p_infect", patient)*infection_step) # must remain at least 1 step below 100% infectious
+  } else if growth=="multiplicative" {
+    p_infect_new = min(p_infect_new, 1/(1+vertex_attr(g, "p_infect", patient)*infection_step)) # must remain at least 1/(1+step) below 100% infectious
+  }
+  p_death_new = vertex_attr(g, "p_death", patient) * death_coef_new
+  p_death_new = min(p_death_new, 1) # must be <= 100% lethal
+  g = set_vertex_attr(g, "p_infect", patient, p_infect_new)
+  g = set_vertex_attr(g, "p_death", patient, p_death_new)
+  g = set_vertex_attr(g, "infection_rate", patient, adjustrI(p_infect_new,vertex_attr(g, "recovery_rate", patient)))
+  # how do I keep the probabilities between 0 and 1 when all I have is the modifier?
+  # maybe I let the modifier go as high or low as I want but keep the bounds when I recalculate infection rate and death probability
+  # what is the highest or lowest the infection prob can go?
+  # additive: [step,1-step]
+  # multiplicative: (0,1/(1+step)]
+  return(g)
+}
+
+# another way to mutate infection and death probabilities
+# p_infect and p_death are directly adjusted
+# for additive mutation, they are increased by c = c +/- step_size
+# for multiplicative mutation, they are increased by c = c * (1 +/- step_size)
+# death probabilities:
+#   p_death_lo and p_death_hi are death probabilities for low-risk and high-risk individuals
+#   they have separate step sizes (they could be equal or different, but they must both be specified)
+#   need a new attribute "risk" to determine which value goes into p_death
+# this function would have to change if we want to add more infection probabilities or death probabilities in the population
+# but the math is much easier to manage
+# this meets immediate needs and will be implemented for now
+mutation_function2 = function(g, patient, mutate_array, sign_array, infection_step, death_step_lo, death_step_hi, growth) {
+  infection_delta = mutate_array[1]*sign_array[1]*infection_step
+  death_delta_lo = mutate_array[2]*sign_array[2]*death_step_lo
+  death_delta_hi = mutate_array[2]*sign_array[2]*death_step_hi
+  if (growth=="additive") {
+    p_infect_new = vertex_attr(g, "p_infect", patient) + infection_delta
+    p_infect_new = sort(infection_step, p_infect_new, 1-infection_step)[2]
+    p_death_lo_new = vertex_attr(g, "p_death_lo", patient) + death_delta_lo
+    p_death_lo_new = sort(c(0, p_death_lo_new, 1))[2]
+    p_death_hi_new = vertex_attr(g, "p_death_hi", patient) + death_delta_hi
+    p_death_hi_new = sort(c(0, p_death_hi_new, 1))[2]
+  } else if (growth=="multiplicative") {
+    p_infect_new = vertex_attr(g, "p_infect", patient) * (1+infection_delta)
+    p_infect_new = min(p_infect_new, 1/(1+infection_step))
+    p_death_lo_new = vertex_attr(g, "p_death_lo", patient) * (1+death_delta_lo)
+    p_death_lo_new = min(p_death_lo_new, 1)
+    p_death_hi_new = vertex_attr(g, "p_death_hi", patient) * (1+death_delta_hi)
+    p_death_hi_new = min(p_death_hi_new, 1)
+  }
+  g = set_vertex_attr(g, "p_infect", patient, p_infect_new) %>%
+      set_vertex_attr("p_death_lo", patient, p_death_lo_new) %>%
+      set_vertex_attr("p_death_hi", patient, p_death_hi_new)
+  g = calculate_infection_rate(g, patient)
+  g = determine_p_death(g, patient)
+  return(g)
+}
+
+# use divine power to create a super strain in a newly infected patient
+create_variant = function(g, patient, p_infect, p_death_lo, p_death_hi) {
+  g = set_vertex_attr(g, "p_infect", patient, p_infect) %>%
+      set_vertex_attr("p_death_lo", patient, p_death_lo) %>%
+      set_vertex_attr("p_death_hi", patient, p_death_hi)
+  g = calculate_infection_rate(g, patient)
+  g = determine_p_death(g, patient)
   return(g)
 }
 
@@ -109,14 +248,17 @@ infect_new_case = function(g, spreader, new_case, t, covid_attr_names) {
   # give new_case spreader's covid attributes
   for (attr in covid_attr_names) {
     g = set_vertex_attr(g, attr, new_case, vertex_attr(g, attr, spreader))
-    # and apply multiplicative modifiers to target attributes
-    if startsWith(attr, "modifier_") {
-      target_attr = sub("modifier_", "", attr)
-      g = set_vertex_attr(g, target_attr, new_case, vertex_attr(g, target_attr, new_case)*vertex_attr(g, attr, new_case))
+    # # and apply multiplicative modifiers to target attributes
+    # if startsWith(attr, "modifier_") {
+      # target_attr = sub("modifier_", "", attr)
+      # g = set_vertex_attr(g, target_attr, new_case, vertex_attr(g, target_attr, new_case)*vertex_attr(g, attr, new_case))
+    # }  
   }
   pI = vertex_attr(g, "p_infect", new_case)
   rR = vertex_attr(g, "recovery_rate", new_case)
   g = set_vertex_attr(g, "infection_rate", new_case, adjustrI(pI,rR))
+  p_death = ifelse(vertex_attr(g, "risk", new_case)=="lo", vertex_attr(g, "p_death_lo", new_case), vertex_attr(g, "p_death_hi", new_case))
+  g = set_vertex_attr(g, "p_death", new_case, p_death)
   return(g)
 }
 
