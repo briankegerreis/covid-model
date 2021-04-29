@@ -34,14 +34,16 @@ covid = function(num_sim, num_cores,
     dg <- igraph::degree(g)
     vulnerable_quantile <- quantile(dg,c(f_vulnerable))
     # these could be set in a yaml config file
-    pop_attrs = list(typ="S", t_infected=NA, t_resolved=NA, parent=NA, n_children=0, lt=NA, p_infect=0, recovery_rate=0, infection_rate=0)
-    personal_attrs = list(degree=dg, p_death=ifelse(dg<vulnerable_quantile, p_death[2], p_death[1]))
+    pop_attrs = list(typ="S", t_infected=NA, t_resolved=NA, parent=NA, n_children=0, lt=NA, p_infect=0, recovery_rate=0, infection_rate=0,
+                     vax=FALSE, vax_efficacy=0)
+    #personal_attrs = list(degree=dg, p_death=ifelse(dg<vulnerable_quantile, p_death[2], p_death[1]))
+    personal_attrs = list(degree=dg, risk=ifelse(dg<vulnerable_quantile, "hi", "lo"))
     g = initialize_population_attributes(g, pop_attrs) %>%
       initialize_person_attributes(g, personal_attrs)
     k <- 1
     patient_zero = Sample(which(dg>0),1) # randomly select patient zero
     # these could be set in a yaml config file
-    covid_attrs = list(p_infect=p_infect, recovery_rate=recovery_rate, modifier_p_death=1)
+    covid_attrs = list(p_infect=p_infect, recovery_rate=recovery_rate, p_death_lo=p_death[1], p_death_hi=p_death[2], vax_resistance=0)
     g = initialize_patient_zero(g, patient_zero, covid_attrs)
     str <- paste0(' ',patient_zero,' ;')
     t <- 0
