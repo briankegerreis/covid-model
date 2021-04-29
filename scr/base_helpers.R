@@ -1,3 +1,13 @@
+# override the behavior of sample() when first argument is a number instead of a vector
+# sample() would try to sample from 1:x instead of just returning x
+Sample <- function(vec,...){
+  if(length(vec) == 1){
+    return(vec[1])}
+  else{
+    return(sample(vec,...))
+  }
+}
+
 
 powB <- function(B,lamb){
   n <- dim(B)[1]
@@ -238,6 +248,86 @@ create_variant = function(g, patient, p_infect, p_death_lo, p_death_hi) {
   return(g)
 }
 
+# manage function calls for different vaccine strategies
+# total_doses and available_doses can be used to vaccinate people over time, or they can be set to the same value to give all doses at once
+vaccination_control = function(g, total_doses, available_doses, pop_size, strategy, eligible_groups, efficacy) {
+  if (strategy=="neighbors") {
+    g = vaccinate_neighbors(g, eligible_groups, total_doses, available_doses, efficacy)
+  } else if (strategy=="uniform") {
+    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 1, "uniform", efficacy)
+  } else if (strategy=="most_connected") {
+    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, total_doses/pop_size, "most", efficacy)
+  } else if (strategy=="among_most_connected") {
+    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 0.5, "most", efficacy)
+  } else if (strategy=="least_connected") {
+    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, total_doses/pop_size, "least", efficacy)
+  } else if (strategy=="among_least_connected") {
+    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 0.5, "most", efficacy)
+  }
+  return(g)
+}
+
+# vaccinate people based on connectivity
+# eligible_groups is a vector like c("S") or c("S","I","R")
+# fraction_targeted is the proportional of the population targeted for vaccination based on connectivity
+# strategy "most" targets highly connected people, strategy "least" targets disconnected people
+# returns the graph and the number of remaining doses if we want to keep track of that
+vaccinate_connected = function(g, eligible_groups, total_doses, available_doses, fraction_targeted, strategy=c("uniform", "most", "least"), efficacy) {
+  eligible_people = which(vertex_attr(g, "typ") %in% eligible_groups)
+  if (length(eligible_people) > available_doses) {
+    available_doses = length(eligible_people)
+  }
+  dg = degree(g)
+  eligible_dg = dg[eligible_people]
+  target_quantile = quantile(dg, fraction_targeted)
+  if (strategy=="uniform") {
+    targeted_people = eligible_people
+  } else if (strategy=="most") {
+    targeted_people = eligible_people[which(eligible_dg)>=target_quantile]
+  } else if (strategy=="least") {
+    targeted_people = eligible_people[which(eligible_dg)<=target_quantile]
+  }
+  vaxxed_people = Sample(targeted_people, available_doses)
+  g = vaccinate(g, vaxxed_people, efficacy)
+  doses_remaining = total_doses - available_doses
+  return(list(g=g, doses_remaining=doses_remaining))
+}
+
+# vaccination strategy based on neighbors
+# works like vaccinate_connected()
+vaccinate_neighbors = function(g, eligible_groups, total_doses, available_doses, efficacy) {
+  eligible_people = which(vertex_attr(g, "typ") %in% eligible_groups)
+  nb = adjacent_vertices(g)
+  if (length(eligible_people) > available_doses) {
+    available_doses = length(eligible_people)
+  }
+  doses_remaining = total_doses
+  while (available_doses>0 & length(eligible_people)>0) {
+    eligible_neighbors = sapply(eligible_people, function(i) sum(vertex_attr(g,"typ",nb[[i]]) %in% eligible_groups & vertex_attr(g,"vax",nb[[i]])==F))
+    if (sum(eligible_neighbors)==0) {
+      vaxxed_people = Sample(eligible_people, available_doses)
+      g = vaccinate(g, vaxxed_people, efficacy)
+      doses_remaining = doses_remaining - available_doses
+      break
+    }
+    ix = Sample(eligible_people[which(eligible_neighbors>0)],1)
+    ni = nb[[ix]][which(vertex_attr(g,"typ",nb[[ix]]) %in% eligible_groups & vertex_attr(g,"vax",nb[[ix]])==F)]
+    vaxxed_person = Sample(ni,1)
+    g = vaccinate(g, ni, efficacy)
+    doses_remaining = doses_remaining - 1
+    available_doses = available_doses - 1
+    eligible_people = eligible_people[!eligible_people %in% vaxxed_person]
+  }
+  return(list(g=g, doses_remaining=doses_remaining))
+}
+
+# set vaccine attributes for newly vaccinated people
+vaccinate = function(g, people, efficacy) {
+  g = set_vertex_attr(g, "vax", people, rep(TRUE,length(people))) %>%
+      set_vertex_attr(g, "vax_efficacy", people, rep(efficacy,length(people)))
+  return(g)
+}
+
 # assign disease attributes to neighbor upon infection
 infect_new_case = function(g, spreader, new_case, t, covid_attr_names) {
   g = set_vertex_attr(g, "typ", new_case, "I") %>%
@@ -281,19 +371,24 @@ generate_vertex_list = function(x, ns) {
 # calculate infection rate and recovery rate
 # s_neighbor_list: list of each infected patient's susceptible neighbors
 # neighbor_susceptbility_list: list of each infected patient's neighbors' susceptibility values
+# vaccine_efficacy_list: list of each infected patient's neighbors' vaccine efficacies (0 if not vaccinated)
+# vaccine_resistances: 
 # s_edge_list: list of each infected patient's edges to susceptible neighbors
 # edge_weight_list: list of each infected patient's edge weights to susceptible neighbors
 # I would like to set these as edge attributes, but they have to be scalars
 calculate_infection_recovery_rates = function(g, infected_patients) {
   infection_rates = vertex_attr(g, "infection_rate", infected_patients)
+  vaccine_resistances = vertex_attr(g, "vax_resistance", infected_patients)
   s_neighbor_list = vector("list", length(infected_patients))
   neighbor_susceptibility_list = vector("list", length(infected_patients))
+  vaccine_efficacy_list = vector("list", length(infected_patients))
   s_edge_list = vector("list", length(infected_patients))
   edge_weight_list = vector("list", length(infected_patients))
   for (i in 1:length(infected_patients)) {
     # with no susceptible neighbors, these are all integer(0)
     s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i])
     neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", s_neighbor_list[[i]])
+    vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", s_neighbor_list[[i]])
     vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
     s_edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
     edge_weight_list[[i]] = edge_attr(g, "weight", s_edge_list[[i]])
@@ -301,7 +396,7 @@ calculate_infection_recovery_rates = function(g, infected_patients) {
   # mapply is just a for loop that iterates over the elements of all given arguments
   # coefficients that modify susceptible neighbors' odds of catching disease
   # a list of vectors
-  catch_coefficients = mapply(function(x,y) x*y, edge_weight_list, neighbor_susceptibility_list)
+  catch_coefficients = mapply(function(w, s, e, r) w*s*(1-e*(1-r)), edge_weight_list, neighbor_susceptibility_list, vaccine_efficacy_list, vaccine_resistances)
   # coefficients that modify patients' odds of spreading disease
   # a vector
   spread_coefficients = mapply(function(x,y), x*sum(y), infection_rates, catch_coefficients)
