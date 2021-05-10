@@ -56,7 +56,7 @@ adjustrI <- function(pI,rR){
 }
 
 # convenience function to calculate infection rate when someone gets sick
-calculate_rI = function(g, patient) {
+calculate_infection_recovery_rates = function(g, patient) {
   pI = vertex_attr(g, "p_infect", patient)
   rR = vertex_attr(g, "recovery_rate", patient)
   rI = adjustrI(pI,rR)
