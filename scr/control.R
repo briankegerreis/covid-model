@@ -39,7 +39,7 @@ f_vulnerable=opt$f_vulnerable
 min_cases=opt$min_cases
 
 invisible(COVID_control(num_sim, num_cores,
-                        pop_size, d_connect, lamp,
+                        pop_size, d_connect, lamb,
                         p_death, recovery_rate, p_infect,
                         t_max, f_vulnerable, min_cases, pre))
 # invisible(COVID_control(M,mc,N,d,lamb,pD,rR,pI,tStop,q,nIs,pre))

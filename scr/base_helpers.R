@@ -56,7 +56,7 @@ adjustrI <- function(pI,rR){
 }
 
 # convenience function to calculate infection rate when someone gets sick
-calculate_infection_recovery_rates = function(g, patient) {
+calculate_disease_rates = function(g, patient) {
   pI = vertex_attr(g, "p_infect", patient)
   rR = vertex_attr(g, "recovery_rate", patient)
   rI = adjustrI(pI,rR)
@@ -91,7 +91,7 @@ probOfDeath<- function(pD,dg,qM){
 initialize_population_attrs = function(g, attr_list) {
   # for things that start the same for the whole population
   # each attr has one value
-  pop_size = len(V(g))
+  pop_size = length(V(g))
   for (attr in names(attr_list)) {
     g = set_vertex_attr(g, attr, value=rep(attr_list[[attr]],pop_size))
   }
@@ -104,6 +104,15 @@ initialize_personal_attrs = function(g, attr_list) {
   # each attr is the size of the population
   for (attr in names(attr_list)) {
     g = set_vertex_attr(g, attr, value=attr_list[[attr]])
+  }
+  return(g)
+}
+
+# assign attributes to edges
+initialize_edge_attrs = function(g, attr_list) {
+  n_edges = length(E(g))
+  for (attr in names(attr_list)) {
+    g = set_edge_attr(g, attr, value=rep(attr_list[[attr]],n_edges))
   }
   return(g)
 }
@@ -121,7 +130,7 @@ initialize_patient_zero = function(g, patient_zero, attr_list) {
   for (attr in names(attr_list)) {
     g = set_vertex_attr(g, attr, patient_zero, attr_list[[attr]])
   }
-  g = calculate_infection_rate(g, patient_zero)
+  g = calculate_disease_rates(g, patient_zero)
   g = determine_p_death(g, patient_zero)
   return(g)
 }
@@ -135,7 +144,7 @@ initialize_patient_zero = function(g, patient_zero, attr_list) {
 # sign_array contains 1 and -1 determining whether the mutations are increases or decreases
 # finally, calls mutation_function and returns the modified graph
 mutation_control = function(g, patient, p_mutate_infection, p_mutate_death, p_increase_infection, p_increase_death,
-                            infection_step, death_step_lo, death_step_hi, p_corr, force_opposite_signs, growth=c("linear","multiplicative")) {
+                            infection_step, death_step_lo, death_step_hi, p_corr, force_opposite_signs, growth=c("additive","multiplicative")) {
   if (rbinom(1,1,p_corr)==1) { # if both characteristics are changing at once
     mutate = rbinom(1,1,p_mutate_infection)
     if (mutate==0) { # do nothing
@@ -182,13 +191,13 @@ mutation_function = function(g, patient, mutate_array, sign_array, infection_ste
   g = set_vertex_attr(g, "modifier_p_infect", patient, infection_coef_new)
   g = set_vertex_attr(g, "modifier_p_death", patient, death_coef_new)
   p_infect_new = vertex_attr(g, "p_infect", patient) * infection_coef_new
-  if (growth)=="additive" {
-    p_infect_new = min(p_infect_new, 1-vertex_attr(g, "p_infect", patient)*infection_step) # must remain at least 1 step below 100% infectious
-  } else if growth=="multiplicative" {
-    p_infect_new = min(p_infect_new, 1/(1+vertex_attr(g, "p_infect", patient)*infection_step)) # must remain at least 1/(1+step) below 100% infectious
+  if (growth=="additive") {
+    p_infect_new = min(c(p_infect_new, 1-vertex_attr(g, "p_infect", patient)*infection_step)) # must remain at least 1 step below 100% infectious
+  } else if (growth=="multiplicative") {
+    p_infect_new = min(c(p_infect_new, 1/(1+vertex_attr(g, "p_infect", patient)*infection_step))) # must remain at least 1/(1+step) below 100% infectious
   }
   p_death_new = vertex_attr(g, "p_death", patient) * death_coef_new
-  p_death_new = min(p_death_new, 1) # must be <= 100% lethal
+  p_death_new = min(c(p_death_new, 1)) # must be <= 100% lethal
   g = set_vertex_attr(g, "p_infect", patient, p_infect_new)
   g = set_vertex_attr(g, "p_death", patient, p_death_new)
   g = set_vertex_attr(g, "infection_rate", patient, adjustrI(p_infect_new,vertex_attr(g, "recovery_rate", patient)))
@@ -217,23 +226,23 @@ mutation_function2 = function(g, patient, mutate_array, sign_array, infection_st
   death_delta_hi = mutate_array[2]*sign_array[2]*death_step_hi
   if (growth=="additive") {
     p_infect_new = vertex_attr(g, "p_infect", patient) + infection_delta
-    p_infect_new = sort(infection_step, p_infect_new, 1-infection_step)[2]
+    p_infect_new = sort(c(infection_step, p_infect_new, 1-infection_step))[2]
     p_death_lo_new = vertex_attr(g, "p_death_lo", patient) + death_delta_lo
     p_death_lo_new = sort(c(0, p_death_lo_new, 1))[2]
     p_death_hi_new = vertex_attr(g, "p_death_hi", patient) + death_delta_hi
     p_death_hi_new = sort(c(0, p_death_hi_new, 1))[2]
   } else if (growth=="multiplicative") {
     p_infect_new = vertex_attr(g, "p_infect", patient) * (1+infection_delta)
-    p_infect_new = min(p_infect_new, 1/(1+infection_step))
+    p_infect_new = min(c(p_infect_new, 1/(1+infection_step)))
     p_death_lo_new = vertex_attr(g, "p_death_lo", patient) * (1+death_delta_lo)
-    p_death_lo_new = min(p_death_lo_new, 1)
+    p_death_lo_new = min(c(p_death_lo_new, 1))
     p_death_hi_new = vertex_attr(g, "p_death_hi", patient) * (1+death_delta_hi)
-    p_death_hi_new = min(p_death_hi_new, 1)
+    p_death_hi_new = min(c(p_death_hi_new, 1))
   }
   g = set_vertex_attr(g, "p_infect", patient, p_infect_new) %>%
       set_vertex_attr("p_death_lo", patient, p_death_lo_new) %>%
       set_vertex_attr("p_death_hi", patient, p_death_hi_new)
-  g = calculate_infection_rate(g, patient)
+  g = calculate_disease_rates(g, patient)
   g = determine_p_death(g, patient)
   return(g)
 }
@@ -243,7 +252,7 @@ create_variant = function(g, patient, p_infect, p_death_lo, p_death_hi) {
   g = set_vertex_attr(g, "p_infect", patient, p_infect) %>%
       set_vertex_attr("p_death_lo", patient, p_death_lo) %>%
       set_vertex_attr("p_death_hi", patient, p_death_hi)
-  g = calculate_infection_rate(g, patient)
+  g = calculate_disease_rates(g, patient)
   g = determine_p_death(g, patient)
   return(g)
 }
@@ -252,19 +261,19 @@ create_variant = function(g, patient, p_infect, p_death_lo, p_death_hi) {
 # total_doses and available_doses can be used to vaccinate people over time, or they can be set to the same value to give all doses at once
 vaccination_control = function(g, total_doses, available_doses, pop_size, strategy, eligible_groups, efficacy) {
   if (strategy=="neighbors") {
-    g = vaccinate_neighbors(g, eligible_groups, total_doses, available_doses, efficacy)
+    l = vaccinate_neighbors(g, eligible_groups, total_doses, available_doses, efficacy)
   } else if (strategy=="uniform") {
-    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 1, "uniform", efficacy)
+    l = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 1, "uniform", efficacy)
   } else if (strategy=="most_connected") {
-    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, total_doses/pop_size, "most", efficacy)
+    l = vaccinate_connected(g, eligible_groups, total_doses, available_doses, total_doses/pop_size, "most", efficacy)
   } else if (strategy=="among_most_connected") {
-    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 0.5, "most", efficacy)
+    l = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 0.5, "most", efficacy)
   } else if (strategy=="least_connected") {
-    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, total_doses/pop_size, "least", efficacy)
+    l = vaccinate_connected(g, eligible_groups, total_doses, available_doses, total_doses/pop_size, "least", efficacy)
   } else if (strategy=="among_least_connected") {
-    g = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 0.5, "most", efficacy)
+    l = vaccinate_connected(g, eligible_groups, total_doses, available_doses, 0.5, "most", efficacy)
   }
-  return(g)
+  return(l)
 }
 
 # vaccinate people based on connectivity
@@ -274,7 +283,7 @@ vaccination_control = function(g, total_doses, available_doses, pop_size, strate
 # returns the graph and the number of remaining doses if we want to keep track of that
 vaccinate_connected = function(g, eligible_groups, total_doses, available_doses, fraction_targeted, strategy=c("uniform", "most", "least"), efficacy) {
   eligible_people = which(vertex_attr(g, "typ") %in% eligible_groups)
-  if (length(eligible_people) > available_doses) {
+  if (length(eligible_people) < available_doses) {
     available_doses = length(eligible_people)
   }
   dg = degree(g)
@@ -324,7 +333,7 @@ vaccinate_neighbors = function(g, eligible_groups, total_doses, available_doses,
 # set vaccine attributes for newly vaccinated people
 vaccinate = function(g, people, efficacy) {
   g = set_vertex_attr(g, "vax", people, rep(TRUE,length(people))) %>%
-      set_vertex_attr(g, "vax_efficacy", people, rep(efficacy,length(people)))
+      set_vertex_attr("vax_efficacy", people, rep(efficacy,length(people)))
   return(g)
 }
 
@@ -396,10 +405,12 @@ calculate_infection_recovery_rates = function(g, infected_patients) {
   # mapply is just a for loop that iterates over the elements of all given arguments
   # coefficients that modify susceptible neighbors' odds of catching disease
   # a list of vectors
-  catch_coefficients = mapply(function(w, s, e, r) w*s*(1-e*(1-r)), edge_weight_list, neighbor_susceptibility_list, vaccine_efficacy_list, vaccine_resistances)
+  catch_coefficients = mapply(function(w, s, e, r) w*s*(1-e*(1-r)),
+                              edge_weight_list, neighbor_susceptibility_list, vaccine_efficacy_list, vaccine_resistances,
+                              SIMPLIFY=FALSE)
   # coefficients that modify patients' odds of spreading disease
   # a vector
-  spread_coefficients = mapply(function(x,y), x*sum(y), infection_rates, catch_coefficients)
+  spread_coefficients = mapply(function(x,y) x*sum(y), infection_rates, catch_coefficients)
   # spread_coefs could be directly calculated with mapply(function(x,y,z) x*y%*%z, infection_rates, edge_weight_list, neighbor_susceptibility_list)
   # but we need the catch_coefs elsewhere, so it doesn't hurt to do the calculation in 2 steps
   # need to be very careful with mapply, if an element is NULL it just recycles something else
