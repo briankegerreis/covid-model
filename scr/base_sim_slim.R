@@ -49,7 +49,7 @@ covid = function(num_sim, num_cores,
     # these could be set in a yaml config file
     covid_attrs = list(p_infect=p_infect, recovery_rate=recovery_rate, p_death_lo=p_death[1], p_death_hi=p_death[2], vax_resistance=0)
     g = initialize_patient_zero(g, patient_zero, covid_attrs)
-    str <- paste0(' ',patient_zero,' ;')
+    newick_tree <- paste0(' ',patient_zero,' ;')
     t <- 0
     total_infections = 1
     vax_done = FALSE
@@ -108,7 +108,8 @@ covid = function(num_sim, num_cores,
               print(paste0("created a mutant at t: ",t))
             }
           }
-          # str <- newick(df$f[ni],ni,t-df$lt[df$f[ni]],str) # I think this makes a tree to keep track of infections
+          # str <- newick(df$f[ni],ni,t-df$lt[df$f[ni]],newick_tree) # I think this makes a tree to keep track of infections
+          newick_tree = newick(spreader, new_case, t-vertex_attr(g,"lt",spreader), newick_tree)
         }
         else { # a recovery or death occurs
           # is this right?
@@ -121,6 +122,7 @@ covid = function(num_sim, num_cores,
           g = set_vertex_attr(g, "typ", patient, outcome)
           g = set_vertex_attr(g, "t_resolved", patient, t)
           # str <- newick(li[ix],F,t-df$lt[li[ix]],str)
+          newick_tree = newick(patient, FALSE, t-vertex_attr(g,"lt",patient), newick_tree)
         }
       }
       k <- k+1
@@ -130,27 +132,26 @@ covid = function(num_sim, num_cores,
       break
     }
   }
-  # write.table(str, file = paste0(pre,N,'/','NW','/',ij,'.txt'),
-  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  # write.table(data.frame(hi = hiaux,lvl = pre, N= N), 
-  #             file = paste0(pre,N,'/','HI','/',ij,'.txt'),
-  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  # write.table(df, 
-  #             file = paste0(pre,N,'/','DF','/',ij,'.txt'),
-  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  # write.table(which(df$typ == 'S'), 
-  #             file = paste0(pre,N,'/','G','/S',ij,'.txt'),
-  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  # write.table(data.frame(dg = dg,lvl = pre, N= N ),file = paste0(pre,N,'/','DG','/',ij,'.txt'),
-  #             sep ='\t', row.names = F,col.names = F,append = F)
-  # write.table(igraph::as_edgelist(g),file = paste0(pre,N,'/','G','/',ij,'.txt'),sep='\t',
-  #             row.names = F,col.names = F,append = T)
-  # write.table( dfSIR(dfpreSIR(df),N),file = paste0(pre,N,'/','SIR','/',ij,'.txt'),
-  #             sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
-  # write.table(igraph::as_edgelist(g),
-  #             file = paste0(pre,N,'/G','/',ij,'.txt'),sep='\t',
-  #             row.names = F,col.names = F,append = T)
-  to_return = list(graph=g, df_edges = as_data_frame(g,"edges"), df_vertices=as_data_frame(g,"vertices"))
+  df = as_data_frame(g,"vertices")
+  write.table(newick_tree, file = paste0(pre,pop_size,'/newick/',ij,'.txt'),
+              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  write.table(data.frame(hi = hiaux,lvl = pre, N = pop_size), 
+              file = paste0(pre,pop_size,'/hiaux/',ij,'.txt'),
+              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  write.table(df, 
+              file = paste0(pre,pop_size,'/dataframe/',ij,'.txt'),
+              sep = "\t",append=F)
+  write.table(which(df$typ == 'S'), 
+              file = paste0(pre,pop_size,'/graph/S',ij,'.txt'),
+              sep = "\t",row.names = FALSE,col.names = FALSE,append=F)
+  write.table(data.frame(dg = dg,lvl = pre, N = pop_size ),
+              file = paste0(pre,pop_size,'/degree/',ij,'.txt'),
+              sep ='\t', row.names = F,col.names = F,append = F)
+  write.table(igraph::as_edgelist(g), file = paste0(pre,pop_size,'/graph/',ij,'.txt'),sep='\t',
+              row.names = F,col.names = F,append = T)
+  write.table(dfSIR(df,pop_size), file = paste0(pre,pop_size,'/SIR/',ij,'.txt'),
+               sep = "\t",row.names = FALSE,append=F)
+  to_return = list(graph=g, df_edges=as_data_frame(g,"edges"), df_vertices=as_data_frame(g,"vertices"))
   return(to_return)
 }
 
@@ -161,11 +162,11 @@ COVID_control = function(num_sim, num_cores,
                          t_max, f_vulnerable, min_cases, pre,
                          mutation, vaccination){
   dir.create(paste0(pre,pop_size))
-  dir.create(paste0(pre,pop_size,'/','HI'))
-  dir.create(paste0(pre,pop_size,'/','DG'))
-  dir.create(paste0(pre,pop_size,'/','G'))
-  dir.create(paste0(pre,pop_size,'/','NW'))
-  dir.create(paste0(pre,pop_size,'/','DF'))
+  dir.create(paste0(pre,pop_size,'/','hiaux'))
+  dir.create(paste0(pre,pop_size,'/','degree'))
+  dir.create(paste0(pre,pop_size,'/','graph'))
+  dir.create(paste0(pre,pop_size,'/','newick'))
+  dir.create(paste0(pre,pop_size,'/','dataframe'))
   dir.create(paste0(pre,pop_size,'/','SIR'))
   if(num_cores == 0){
     #invisible(lapply(1:M, function(i) covid(M,mc,N,d,lamb,pD,rR,pI,t,q,nIs,pre,i)))

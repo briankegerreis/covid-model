@@ -446,19 +446,32 @@ act <- function(i,dfsir,df,ncl){
   return(dfsir)
 }
 
-dfSIR <- function(df,N){
-  ncl <- max(c(df[,3],df[,2]),na.rm = T)+2
-  dfsir <- data.frame(S = rep(N,ncl),I = rep(0,ncl),R = rep(0,ncl), 
-                      D = rep(0,ncl))
-  
-  for(i in 1:dim(df)[1] ){dfsir <- act(i,dfsir,df,ncl)}
-  return(dfsir)  
-} 
+# dfSIR <- function(df,N){
+#   ncl <- max(c(df[,3],df[,2]),na.rm = T)+2
+#   dfsir <- data.frame(S = rep(N,ncl),I = rep(0,ncl),R = rep(0,ncl), 
+#                       D = rep(0,ncl))
+#   
+#   for(i in 1:dim(df)[1] ){dfsir <- act(i,dfsir,df,ncl)}
+#   return(dfsir)  
+# } 
 
-dfpreSIR <- function(df){
-  df1 <- df[which(df$typ != 'S'),c(2,3,4)]
-  df1[,2] <- ceiling(df1[,2])
-  df1[,3] <- ceiling(df1[,3])
-  return(df1)
+# index, typ, t_infected, t_resolved
+dfSIR = function(df, pop_size) {
+  df = df[which(df$typ!="S"),c("typ","t_infected","t_resolved")]
+  df$t_infected = ceiling(df$t_infected)
+  df$t_resolved = ceiling(df$t_resolved)
+  ncl = max(c(df$t_infected, df$t_resolved), na.rm=TRUE)+2
+  dfsir = data.frame(S=rep(pop_size, ncl), I=rep(0,ncl), R=rep(0,ncl), D=rep(0,ncl))
+  for (i in 1:nrow(df)) {
+    dfsir = act(i,dfsir,df,ncl)
+  }
+  return(dfsir)
 }
+
+# dfpreSIR <- function(df){
+#   df1 <- df[which(df$typ != 'S'),c(2,3,4)]
+#   df1[,2] <- ceiling(df1[,2])
+#   df1[,3] <- ceiling(df1[,3])
+#   return(df1)
+# }
 
