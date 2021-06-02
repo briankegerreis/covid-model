@@ -144,11 +144,12 @@ initialize_patient_zero = function(g, patient_zero, attr_list) {
 # sign_array contains 1 and -1 determining whether the mutations are increases or decreases
 # finally, calls mutation_function and returns the modified graph
 mutation_control = function(g, patient, p_mutate_infection, p_mutate_death, p_increase_infection, p_increase_death,
-                            infection_step, death_step_lo, death_step_hi, p_corr, force_opposite_signs, growth=c("additive","multiplicative")) {
+                            infection_step, death_step_lo, death_step_hi, p_corr, force_opposite_signs,
+                            growth=c("additive","multiplicative"), strain_id) {
   if (rbinom(1,1,p_corr)==1) { # if both characteristics are changing at once
     mutate = rbinom(1,1,p_mutate_infection)
     if (mutate==0) { # do nothing
-      return(g)
+      return(list(g=g))
     } else {
       mutate_array = rep(mutate,2) # set both characteristics to mutate
       if (force_opposite_signs) {
@@ -162,12 +163,13 @@ mutation_control = function(g, patient, p_mutate_infection, p_mutate_death, p_in
     mutate_array = rbinom(2,1,c(p_mutate_infection,p_mutate_death))
     sign_array = rbinom(2,1,c(p_increase_infection,p_increase_death))
     if (sum(mutate_array)==0) { # do nothing
-      return(g)
+      return(list(g=g))
     }
   }
   sign_array = 2*sign_array-1 # convert 0 to -1
-  g = mutation_function2(g, patient, mutate_array, sign_array, infection_step, death_step_lo, death_step_hi, growth)
-  return(g)
+  g = mutation_function2(g, patient, mutate_array, sign_array, infection_step, death_step_lo, death_step_hi, growth, strain_id)
+  next_strain_id = strain_id + 1
+  return(list(g=g, next_strain_id=next_strain_id))
 }
 
 # one possible way to mutate infection and death probabilities
@@ -220,7 +222,7 @@ mutation_function = function(g, patient, mutate_array, sign_array, infection_ste
 # this function would have to change if we want to add more infection probabilities or death probabilities in the population
 # but the math is much easier to manage
 # this meets immediate needs and will be implemented for now
-mutation_function2 = function(g, patient, mutate_array, sign_array, infection_step, death_step_lo, death_step_hi, growth) {
+mutation_function2 = function(g, patient, mutate_array, sign_array, infection_step, death_step_lo, death_step_hi, growth, strain_id) {
   infection_delta = mutate_array[1]*sign_array[1]*infection_step
   death_delta_lo = mutate_array[2]*sign_array[2]*death_step_lo
   death_delta_hi = mutate_array[2]*sign_array[2]*death_step_hi
@@ -238,23 +240,28 @@ mutation_function2 = function(g, patient, mutate_array, sign_array, infection_st
     p_death_lo_new = min(c(p_death_lo_new, 1))
     p_death_hi_new = vertex_attr(g, "p_death_hi", patient) * (1+death_delta_hi)
     p_death_hi_new = min(c(p_death_hi_new, 1))
+  } else {
+    stop("Mutation growth mode must be 'additive' or 'multiplicative'")
   }
   g = set_vertex_attr(g, "p_infect", patient, p_infect_new) %>%
       set_vertex_attr("p_death_lo", patient, p_death_lo_new) %>%
-      set_vertex_attr("p_death_hi", patient, p_death_hi_new)
+      set_vertex_attr("p_death_hi", patient, p_death_hi_new) %>%
+      set_vertex_attr("strain_id", patient, strain_id)
   g = calculate_disease_rates(g, patient)
   g = determine_p_death(g, patient)
   return(g)
 }
 
 # use divine power to create a super strain in a newly infected patient
-create_variant = function(g, patient, p_infect, p_death_lo, p_death_hi) {
+create_variant = function(g, patient, p_infect, p_death_lo, p_death_hi, strain_id) {
   g = set_vertex_attr(g, "p_infect", patient, p_infect) %>%
       set_vertex_attr("p_death_lo", patient, p_death_lo) %>%
-      set_vertex_attr("p_death_hi", patient, p_death_hi)
+      set_vertex_attr("p_death_hi", patient, p_death_hi) %>%
+      set_vertex_attr("strain_id", patient, strain_id)
   g = calculate_disease_rates(g, patient)
   g = determine_p_death(g, patient)
-  return(g)
+  next_strain_id = strain_id + 1
+  return(list(g=g, next_strain_id=next_strain_id))
 }
 
 # manage function calls for different vaccine strategies
@@ -362,9 +369,10 @@ infect_new_case = function(g, spreader, new_case, t, covid_attr_names) {
 }
 
 # find all susceptible neighbors of a given individual
-susceptible_neighbors = function(g, x) {
-  all_neighbors = igraph::neighbors(g, x)
-  s_neighbors = all_neighbors[which(igraph::vertex_attr(g, "typ", all_neighbors)=="S")]
+susceptible_neighbors = function(g, x, neighbors_list, infection_status) {
+  # all_neighbors = igraph::neighbors(g, x)
+  all_neighbors = neighbors_list[[x]]
+  s_neighbors = all_neighbors[which(infection_status[all_neighbors]=="S")]
   return(as.integer(s_neighbors)) # no need to deal with the 'igraph.vs' class
 }
 
@@ -385,9 +393,10 @@ generate_vertex_list = function(x, ns) {
 # s_edge_list: list of each infected patient's edges to susceptible neighbors
 # edge_weight_list: list of each infected patient's edge weights to susceptible neighbors
 # I would like to set these as edge attributes, but they have to be scalars
-calculate_infection_recovery_rates = function(g, infected_patients) {
+calculate_infection_recovery_rates = function(g, infected_patients, neighbors_list) {
   infection_rates = vertex_attr(g, "infection_rate", infected_patients)
   vaccine_resistances = vertex_attr(g, "vax_resistance", infected_patients)
+  infection_status = vertex_attr(g, "typ")
   s_neighbor_list = vector("list", length(infected_patients))
   neighbor_susceptibility_list = vector("list", length(infected_patients))
   vaccine_efficacy_list = vector("list", length(infected_patients))
@@ -395,7 +404,7 @@ calculate_infection_recovery_rates = function(g, infected_patients) {
   edge_weight_list = vector("list", length(infected_patients))
   for (i in 1:length(infected_patients)) {
     # with no susceptible neighbors, these are all integer(0)
-    s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i])
+    s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i], neighbors_list, infection_status)
     neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", s_neighbor_list[[i]])
     vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", s_neighbor_list[[i]])
     vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
