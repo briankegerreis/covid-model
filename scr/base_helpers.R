@@ -149,7 +149,7 @@ mutation_control = function(g, patient, p_mutate_infection, p_mutate_death, p_in
   if (rbinom(1,1,p_corr)==1) { # if both characteristics are changing at once
     mutate = rbinom(1,1,p_mutate_infection)
     if (mutate==0) { # do nothing
-      return(list(g=g))
+      return(list(g=g, next_strain_id=strain_id))
     } else {
       mutate_array = rep(mutate,2) # set both characteristics to mutate
       if (force_opposite_signs) {
@@ -163,7 +163,7 @@ mutation_control = function(g, patient, p_mutate_infection, p_mutate_death, p_in
     mutate_array = rbinom(2,1,c(p_mutate_infection,p_mutate_death))
     sign_array = rbinom(2,1,c(p_increase_infection,p_increase_death))
     if (sum(mutate_array)==0) { # do nothing
-      return(list(g=g))
+      return(list(g=g, next_strain_id=strain_id))
     }
   }
   sign_array = 2*sign_array-1 # convert 0 to -1

@@ -1,40 +1,40 @@
 general:
-  pop_size: 250
-  d_connect: 50
-  lamb: -1
-  p_death: [0.001, 0.01]
-  recovery_rate: 0.10
-  p_infect: 0.10
-  f_vulnerable: 0.10
-  min_cases: 50
-  t_max: 0
-  pre: "test"
+  pop_size: 250 # population size
+  d_connect: 50 # average degree of connectivity
+  lamb: -1 # lambda parameter for power law graph. Set to -1 for erdos-renyi graph
+  p_death: [0.001, 0.01] # probabilities of death for low-risk and high-risk individuals
+  recovery_rate: 0.10 # recovery rate
+  p_infect: 0.10 # probability of infection
+  f_vulnerable: 0.10 # fraction of population with lowest connectivity, considered high-risk
+  min_cases: 50 # minimum number of cases for a successful simulation
+  t_max: 0 # maximum time. Set to 0 for no limit
+  pre: "test" # output directory prefix
 compute:
-  num_sim: 1
-  num_cores: 0
+  num_sim: 1 # number of simulations to run
+  num_cores: 0 # number of cores to use. Set to 0 for no parallel processing
 mutation:
-  enabled: true
-  mode: "created"
+  enabled: true # true/false for mutations
+  mode: "created" # random or created
   created_params:
-    n_infections: 20
-    p_infect: 0.20
-    p_death_lo: 0.05
-    p_death_hi: 0.50
+    n_infections: 20 # when the variant appears
+    p_infect: 0.20 # probability of infection
+    p_death_lo: 0.05 # probability of death for low-risk individuals
+    p_death_hi: 0.50 # probability of death for high-risk individuals
   random_params:
-    p_mutate_infection: 0.05
-    p_mutate_death: 0.02
-    p_increase_infection: 0.75
-    p_increase_death: 0.50
-    infection_step: 0.025
-    death_step_lo: 0.001
-    death_step_hi: 0.01
-    p_corr: 0.50
-    force_opposite_signs: false
-    growth: additive
+    p_mutate_infection: 0.05 # probability of mutating p_infect
+    p_mutate_death: 0.02 # probability of mutating p_death
+    p_increase_infection: 0.75 # probability of increasing p_infect, given mutation
+    p_increase_death: 0.50 # probability of increasing p_death, given mutation
+    infection_step: 0.025 # p_infect step size (additive) or proportional change (multiplicative)
+    death_step_lo: 0.001 # p_death step size or proportional change for low-risk individuals
+    death_step_hi: 0.01 # p_death step size or proportional change for high-risk individuals
+    p_corr: 0.50 # probability that p_infect and p_death will mutate at the same time, in the same direction
+    force_opposite_signs: false # true/false to force p_infect and p_death to change in opposite directions
+    growth: additive # additive or multiplicative
 vaccination:
-  enabled: true
-  fraction_to_vaccinate: 0.30
-  threshold_fraction: 0.10
-  strategy: "uniform"
-  eligible_groups: ["S"]
-  efficacy: 0.95
+  enabled: true # true/false for vaccination
+  fraction_to_vaccinate: 0.30 # proportion of population to receive vaccinations
+  threshold_fraction: 0.10 # proportion of population infected to start vaccinations
+  strategy: "uniform" # neighbors, uniform, most_connected, among_most_connected, least_connected, among_least_connected
+  eligible_groups: ["S"] # any combination of S, I, and R that are eligible to be vaccinated
+  efficacy: 0.95 # vaccine efficacy as a proportion (less than 1)
