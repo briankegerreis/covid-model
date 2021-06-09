@@ -443,6 +443,8 @@ act <- function(i,dfsir,df,ncl){
   else if(df[i,1] == 'I'){
     dfsir$S[(df[i,2]+1):ncl] <- dfsir$S[(df[i,2]+1):ncl]-1
     dfsir$I[(df[i,2]+1):ncl] <- dfsir$I[(df[i,2]+1):ncl]+1
+    dfsir$pI[(df[i,2]+1):ncl] <- dfsir$pI[(df[i,2]+1):ncl]+df[i,4]
+    dfsir$pD[(df[i,2]+1):ncl] <- dfsir$pD[(df[i,2]+1):ncl]+df[i,5]
     return(dfsir)
   }
   else{
@@ -451,6 +453,8 @@ act <- function(i,dfsir,df,ncl){
   }
   dfsir$S[(df[i,2]+1):ncl] <- dfsir$S[(df[i,2]+1):ncl]-1
   dfsir$I[(df[i,2]+1):(df[i,3]+1)] <- dfsir$I[(df[i,2]+1):(df[i,3]+1)]+1
+  dfsir$pI[(df[i,2]+1):(df[i,3]+1)] <- dfsir$pI[(df[i,2]+1):(df[i,3]+1)]+df[i,4]
+  dfsir$pD[(df[i,2]+1):(df[i,3]+1)] <- dfsir$pD[(df[i,2]+1):(df[i,3]+1)]+df[i,5]
   dfsir[(df[i,3]+2):ncl,indx] <- dfsir[(df[i,3]+2):ncl,indx]+1
   return(dfsir)
 }
@@ -466,14 +470,16 @@ act <- function(i,dfsir,df,ncl){
 
 # index, typ, t_infected, t_resolved
 dfSIR = function(df, pop_size) {
-  df = df[which(df$typ!="S"),c("typ","t_infected","t_resolved")]
+  df = df[which(df$typ!="S"),c("typ","t_infected","t_resolved","p_infect","p_death")]
   df$t_infected = ceiling(df$t_infected)
   df$t_resolved = ceiling(df$t_resolved)
   ncl = max(c(df$t_infected, df$t_resolved), na.rm=TRUE)+2
-  dfsir = data.frame(S=rep(pop_size, ncl), I=rep(0,ncl), R=rep(0,ncl), D=rep(0,ncl))
+  dfsir = data.frame(S=rep(pop_size, ncl), I=rep(0,ncl), R=rep(0,ncl), D=rep(0,ncl), pI=rep(0,ncl), pD=rep(0,ncl))
   for (i in 1:nrow(df)) {
     dfsir = act(i,dfsir,df,ncl)
   }
+  dfsir$pI[1:(ncl-1)] <- dfsir$pI[1:(ncl-1)]/dfsir$I[1:(ncl-1)]
+  dfsir$pD[1:(ncl-1)] <- dfsir$pD[1:(ncl-1)]/dfsir$I[1:(ncl-1)]
   return(dfsir)
 }
 
