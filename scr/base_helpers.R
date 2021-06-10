@@ -378,6 +378,9 @@ susceptible_neighbors = function(g, x, neighbors_list, infection_status) {
 
 # convert individual and vector of neighbors to c(indiv, n1, indiv, n2, indiv, n3...) to extract edges later
 generate_vertex_list = function(x, ns) {
+  if (length(ns)==0) {
+    return(vertex_list)
+  }
   vertex_list = integer(0)
   for (i in 1:length(ns)) {
     vertex_list = c(vertex_list, x, ns[i])
