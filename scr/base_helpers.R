@@ -123,6 +123,7 @@ initialize_edge_attrs = function(g, attr_list) {
 # attr_list = list(p_infect=p_infect, recovery_rate=recovery_rate, modifier_p_death=1, modifier_vacc_efficacy=1)
 initialize_patient_zero = function(g, patient_zero, attr_list) {
   g = set_vertex_attr(g, "typ", patient_zero, "I") %>%
+    set_vertex_attr("susceptibility", patient_zero, 0) %>%
     set_vertex_attr("t_infected", patient_zero, 0) %>%
     set_vertex_attr("parent", patient_zero, 0) %>%
     set_vertex_attr("lt", patient_zero, 0)
@@ -347,6 +348,7 @@ vaccinate = function(g, people, efficacy) {
 # assign disease attributes to neighbor upon infection
 infect_new_case = function(g, spreader, new_case, t, covid_attr_names) {
   g = set_vertex_attr(g, "typ", new_case, "I") %>%
+    set_vertex_attr("susceptibility", new_case, 0) %>%
     set_vertex_attr("parent", new_case, spreader) %>%
     set_vertex_attr("t_infected", new_case, t) %>%
     set_vertex_attr("lt", c(spreader,new_case), rep(t,2)) %>%
@@ -368,19 +370,23 @@ infect_new_case = function(g, spreader, new_case, t, covid_attr_names) {
   return(g)
 }
 
-# find all susceptible neighbors of a given individual
-susceptible_neighbors = function(g, x, neighbors_list, infection_status) {
-  # all_neighbors = igraph::neighbors(g, x)
-  all_neighbors = neighbors_list[[x]]
-  s_neighbors = all_neighbors[which(infection_status[all_neighbors]=="S")]
-  return(as.integer(s_neighbors)) # no need to deal with the 'igraph.vs' class
-}
+# # find all susceptible neighbors of a given individual
+# susceptible_neighbors = function(g, x, neighbors_list, infection_status) {
+#   # all_neighbors = igraph::neighbors(g, x)
+#   all_neighbors = neighbors_list[[x]]
+#   s_neighbors = all_neighbors[which(infection_status[all_neighbors]=="S")]
+#   return(as.integer(s_neighbors)) # no need to deal with the 'igraph.vs' class
+# }
 
 # convert individual and vector of neighbors to c(indiv, n1, indiv, n2, indiv, n3...) to extract edges later
 generate_vertex_list = function(x, ns) {
   if (length(ns)==0) {
     return(integer(0))
   }
+  # vertex_list = integer(length(ns)*2)
+  # for (i in 1:length(ns)) {
+  #   vertex_list[(2*i-1):(2*i)] = c(x, ns[i])
+  # }
   vertex_list = integer(0)
   for (i in 1:length(ns)) {
     vertex_list = c(vertex_list, x, ns[i])
@@ -396,23 +402,30 @@ generate_vertex_list = function(x, ns) {
 # s_edge_list: list of each infected patient's edges to susceptible neighbors
 # edge_weight_list: list of each infected patient's edge weights to susceptible neighbors
 # I would like to set these as edge attributes, but they have to be scalars
-calculate_infection_recovery_rates = function(g, infected_patients, neighbors_list) {
+calculate_infection_recovery_rates = function(g, infected_patients, neighbors_list, edges_list) {
   infection_rates = vertex_attr(g, "infection_rate", infected_patients)
   vaccine_resistances = vertex_attr(g, "vax_resistance", infected_patients)
   infection_status = vertex_attr(g, "typ")
-  s_neighbor_list = vector("list", length(infected_patients))
+  # s_neighbor_list = vector("list", length(infected_patients))
   neighbor_susceptibility_list = vector("list", length(infected_patients))
   vaccine_efficacy_list = vector("list", length(infected_patients))
-  s_edge_list = vector("list", length(infected_patients))
+  # s_edge_list = vector("list", length(infected_patients))
+  # edge_list = vector("list", length(infected_patients))
   edge_weight_list = vector("list", length(infected_patients))
   for (i in 1:length(infected_patients)) {
-    # with no susceptible neighbors, these are all integer(0)
-    s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i], neighbors_list, infection_status)
-    neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", s_neighbor_list[[i]])
-    vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", s_neighbor_list[[i]])
-    vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
-    s_edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
-    edge_weight_list[[i]] = edge_attr(g, "weight", s_edge_list[[i]])
+    # # with no susceptible neighbors, these are all integer(0)
+    # s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i], neighbors_list, infection_status)
+    # neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", s_neighbor_list[[i]])
+    # vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", s_neighbor_list[[i]])
+    # vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
+    # s_edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
+    # edge_weight_list[[i]] = edge_attr(g, "weight", s_edge_list[[i]])
+    patient = infected_patients[i]
+    neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", neighbors_list[[patient]])
+    vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", neighbors_list[[patient]])
+    # vertex_list = generate_vertex_list(patient, neighbors_list[[patient]])
+    # edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
+    edge_weight_list[[i]] = edge_attr(g, "weight", edges_list[[patient]])
   }
   # mapply is just a for loop that iterates over the elements of all given arguments
   # coefficients that modify susceptible neighbors' odds of catching disease

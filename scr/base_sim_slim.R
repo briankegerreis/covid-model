@@ -32,6 +32,7 @@ covid = function(num_sim, num_cores,
     }
     nb <- igraph::adjacent_vertices(g,1:pop_size)
     neighbors_list = adjacent_vertices(g, 1:pop_size)
+    edges_list = as_adj_edge_list(g)
     dg <- igraph::degree(g)
     vulnerable_quantile <- quantile(dg,c(f_vulnerable))
     # these could be set in a yaml config file
@@ -78,7 +79,7 @@ covid = function(num_sim, num_cores,
           print(paste0("vaccinated at t: ",t))
         }
       }
-      rates = calculate_infection_recovery_rates(g, infected_patients, neighbors_list)
+      rates = calculate_infection_recovery_rates(g, infected_patients, neighbors_list, edges_list)
       rateInfect = rates$rateInfect
       rateReco = rates$rateReco
       ratemin <- rateInfect + rateReco
@@ -97,8 +98,8 @@ covid = function(num_sim, num_cores,
           spreader_ix = Sample(1:length(infected_patients), 1, prob=rates$spread_coefficients/rateInfect) # find the spreader, weighted by infection rate, connection strength to susceptible neighbors, and susceptibility of neighbors
           spreader = infected_patients[spreader_ix]
           catch_probabilities = rates$catch_coefficients[[spreader_ix]]/sum(rates$catch_coefficients[[spreader_ix]])
-          new_case = Sample(susceptible_neighbors(g, spreader, neighbors_list, infection_status), 1, prob=catch_probabilities) # find the new case among the spreader's susceptible neighbors
-          #### g = infect_and_mutate(g, spreader, new_case, mutation_prob, mutation_rate)
+          # new_case = Sample(susceptible_neighbors(g, spreader, neighbors_list, infection_status), 1, prob=catch_probabilities) # find the new case among the spreader's susceptible neighbors
+          new_case = Sample(neighbors_list[[spreader]], 1, prob=catch_probabilities)
           # move newick here before we set spreader.lt to t
           # tree_list
           # with original strain and each new strain, add a strain_id
