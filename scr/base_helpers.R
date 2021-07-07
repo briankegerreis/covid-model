@@ -412,20 +412,26 @@ calculate_infection_recovery_rates = function(g, infected_patients, neighbors_li
   # s_edge_list = vector("list", length(infected_patients))
   # edge_list = vector("list", length(infected_patients))
   edge_weight_list = vector("list", length(infected_patients))
+  neighbor_s_lookup = vertex_attr(g, "susceptibility")
+  vax_eff_lookup = vertex_attr(g, "vax_efficacy")
+  edge_weight_lookup = edge_attr(g, "weight")
   for (i in 1:length(infected_patients)) {
     # # with no susceptible neighbors, these are all integer(0)
-    # s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i], neighbors_list, infection_status)
-    # neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", s_neighbor_list[[i]])
-    # vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", s_neighbor_list[[i]])
-    # vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
-    # s_edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
-    # edge_weight_list[[i]] = edge_attr(g, "weight", s_edge_list[[i]])
+    ## s_neighbor_list[[i]] = susceptible_neighbors(g, infected_patients[i], neighbors_list, infection_status)
+    ## neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", s_neighbor_list[[i]])
+    ## vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", s_neighbor_list[[i]])
+    ## vertex_list = generate_vertex_list(infected_patients[i], s_neighbor_list[[i]])
+    ## s_edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
+    ## edge_weight_list[[i]] = edge_attr(g, "weight", s_edge_list[[i]])
     patient = infected_patients[i]
-    neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", neighbors_list[[patient]])
-    vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", neighbors_list[[patient]])
-    # vertex_list = generate_vertex_list(patient, neighbors_list[[patient]])
-    # edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
-    edge_weight_list[[i]] = edge_attr(g, "weight", edges_list[[patient]])
+    #neighbor_susceptibility_list[[i]] = vertex_attr(g, "susceptibility", neighbors_list[[patient]])
+    #vaccine_efficacy_list[[i]] = vertex_attr(g, "vax_efficacy", neighbors_list[[patient]])
+    ## vertex_list = generate_vertex_list(patient, neighbors_list[[patient]])
+    ## edge_list[[i]] = get.edge.ids(g, vertex_list, error=TRUE)
+    #edge_weight_list[[i]] = edge_attr(g, "weight", edges_list[[patient]])
+    neighbor_susceptibility_list[[i]] = neighbor_s_lookup[neighbors_list[[patient]]]
+    vaccine_efficacy_list[[i]] = vax_eff_lookup[neighbors_list[[patient]]]
+    edge_weight_list[[i]] = edge_weight_lookup[edges_list[[patient]]]
   }
   # mapply is just a for loop that iterates over the elements of all given arguments
   # coefficients that modify susceptible neighbors' odds of catching disease
